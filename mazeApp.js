@@ -116,15 +116,23 @@ document.addEventListener('keydown', (event) => {
 
     switch (event.key) {
         case 'ArrowUp':
+        case 'w':
+        case 'W':
             newY--; // Move up
             break;
         case 'ArrowDown':
+        case 's':
+        case 'S':
             newY++; // Move down
             break;
         case 'ArrowLeft':
+        case 'a':
+        case 'A':
             newX--; // Move left
             break;
         case 'ArrowRight':
+        case 'd':
+        case 'D':
             newX++; // Move right
             break;
     }
@@ -137,6 +145,54 @@ document.addEventListener('keydown', (event) => {
 
     drawMaze(); // Redraw the maze and player
 });
+
+// Add mobile touch controls
+function setupMobileControls() {
+    const touchArea = document.getElementById('touchArea');
+    let startX, startY;
+
+    touchArea.addEventListener('touchstart', (event) => {
+        touchArea.classList.add('active'); // Enable touch events
+        const touch = event.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+    });
+
+    touchArea.addEventListener('touchend', (event) => {
+        touchArea.classList.remove('active'); // Disable touch events
+        const touch = event.changedTouches[0];
+        const endX = touch.clientX;
+        const endY = touch.clientY;
+
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+
+        let newX = playerX;
+        let newY = playerY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (diffX > 0) {
+                newX++; // Move right
+            } else {
+                newX--; // Move left
+            }
+        } else {
+            if (diffY > 0) {
+                newY++; // Move down
+            } else {
+                newY--; // Move up
+            }
+        }
+
+        // Check if the new position is a path (white tile)
+        if (maze[newY] && maze[newY][newX] === 1) {
+            playerX = newX; // Update player position
+            playerY = newY; // Update player position
+        }
+
+        drawMaze(); // Redraw the maze and player
+    });
+}
 
 // Handle camera mode change
 document.getElementById('cameraMode').addEventListener('change', (event) => {
@@ -296,6 +352,8 @@ function initGame() {
     let stepCount = 0; // Initialize step count
     drawMaze();
     
+    setupMobileControls(); // Initialize mobile controls
+
     // Start minotaur behavior
     setInterval(() => {
         if (minotaurPath.length > 0) {
@@ -324,15 +382,23 @@ function initGame() {
 
         switch (event.key) {
             case 'ArrowUp':
+            case 'w':
+            case 'W':
                 newY--; // Move up
                 break;
             case 'ArrowDown':
+            case 's':
+            case 'S':
                 newY++; // Move down
                 break;
             case 'ArrowLeft':
+            case 'a':
+            case 'A':
                 newX--; // Move left
                 break;
             case 'ArrowRight':
+            case 'd':
+            case 'D':
                 newX++; // Move right
                 break;
         }
