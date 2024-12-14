@@ -17,7 +17,7 @@ h1 {
     color: #4a90e2;
 }
 
-canvas {
+#gameCanvas {
     display: block;
     margin: 0 auto;
     background-color: #2d2d2d;

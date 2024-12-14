@@ -148,18 +148,16 @@ document.addEventListener('keydown', (event) => {
 
 // Add mobile touch controls
 function setupMobileControls() {
-    const touchArea = document.getElementById('touchArea');
+    const canvas = document.getElementById('gameCanvas');
     let startX, startY;
 
-    touchArea.addEventListener('touchstart', (event) => {
-        touchArea.classList.add('active'); // Enable touch events
+    canvas.addEventListener('touchstart', (event) => {
         const touch = event.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
     });
 
-    touchArea.addEventListener('touchend', (event) => {
-        touchArea.classList.remove('active'); // Disable touch events
+    canvas.addEventListener('touchend', (event) => {
         const touch = event.changedTouches[0];
         const endX = touch.clientX;
         const endY = touch.clientY;
