@@ -1,3 +1,21 @@
+document.addEventListener('DOMContentLoaded', function() {
+    // Call initGame instead of individual initialization calls
+    initGame();
+
+    // Add event listeners for the new buttons
+    document.getElementById('centerCameraButton').addEventListener('click', function() {
+        cameraMode = 'center';
+        document.getElementById('gameCanvas').focus();
+        drawMaze();
+    });
+
+    document.getElementById('edgeCameraButton').addEventListener('click', function() {
+        cameraMode = 'edge';
+        document.getElementById('gameCanvas').focus();
+        drawMaze();
+    });
+});
+
 // Move ALL global variables to the very top of the file
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -192,12 +210,6 @@ function setupMobileControls() {
     });
 }
 
-// Handle camera mode change
-document.getElementById('cameraMode').addEventListener('change', (event) => {
-    cameraMode = event.target.value; // Update camera mode
-    drawMaze(); // Redraw the maze with the new camera mode
-});
-
 function generatePathDFS(x, y, path, visited, steps) {
     if (path.length >= steps) return true;
 
@@ -346,7 +358,7 @@ async function findPathToPlayer() {
 
 // Move the initialization code to the bottom of the file
 function initGame() {
-    let minotaurPath = spawnMinotaur();
+    minotaurPath = spawnMinotaur();
     let stepCount = 0; // Initialize step count
     drawMaze();
     
@@ -418,5 +430,44 @@ function initGame() {
     });
 }
 
-// Call initGame instead of individual initialization calls
-initGame();
+// Find the mobile button event handlers
+function initMobileControls() {
+    document.querySelectorAll('.mobile-btn').forEach(btn => {
+        btn.addEventListener('touchstart', (e) => {
+            const direction = btn.dataset.direction;
+            handleMobileMove(direction);
+        });
+    });
+}
+
+function handleMobileMove(direction) {
+    let newX = playerX;
+    let newY = playerY;
+    
+    switch(direction) {
+        case 'up': newY--; break;
+        case 'down': newY++; break;
+        case 'left': newX--; break;
+        case 'right': newX++; break;
+    }
+    
+    // Check if the new position is a path (white tile)
+    if (maze[newY] && maze[newY][newX] === 1) {
+        playerX = newX;
+        playerY = newY;
+
+        // Update minotaur path
+        if (minotaurPath.length > 0 && 
+            minotaurPath[minotaurPath.length - 1].x === playerX && 
+            minotaurPath[minotaurPath.length - 1].y === playerY) {
+            minotaurPath.pop(); // Remove the repeated position
+        } else {
+            minotaurPath.push({x: playerX, y: playerY}); // Append to minotaur path
+        }
+
+        drawMaze();
+    }
+}
+
+// Add this to your initialization code
+initMobileControls();

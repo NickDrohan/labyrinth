@@ -8,12 +8,18 @@
 </head>
 <body>
     <h1>Labyrinth</h1>
-    <select id="cameraMode">
-        <option value="center">Center Camera</option>
-        <option value="edge">Edge Camera</option>
-    </select>
+    <button id="centerCameraButton">Center Camera</button>
+    <button id="edgeCameraButton">Edge Camera</button>
     <div id="stepCounter">Steps: 0</div>
-    <canvas id="gameCanvas" width="800" height="800"></canvas>
+    <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
+    
+    <div class="mobile-controls">
+        <button class="mobile-btn" data-direction="up">↑</button>
+        <button class="mobile-btn" data-direction="left">←</button>
+        <button class="mobile-btn" data-direction="down">↓</button>
+        <button class="mobile-btn" data-direction="right">→</button>
+    </div>
+
     <script src="mazeApp.js"></script>
 </body>
 </html>

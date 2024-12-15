@@ -38,3 +38,65 @@ h1 {
 #touchArea.active {
     pointer-events: auto;
 }
+
+.hidden {
+    display: none;
+}
+
+.mobile-controls {
+    display: none;  /* Hidden by default */
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    grid-template-columns: 240px 240px 240px;  /* Doubled again to 240px */
+    grid-template-rows: 240px 240px 240px;     /* Doubled again to 240px */
+    gap: 10px;
+    z-index: 100;
+}
+
+@media (max-width: 768px) {
+    .mobile-controls {
+        display: grid;
+        grid-template-areas:
+            '. up .'
+            'left . right'
+            '. down .';
+    }
+}
+
+.mobile-btn {
+    width: 240px;   /* Doubled again to 240px */
+    height: 240px;  /* Doubled again to 240px */
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    color: white;
+    font-size: 96px;  /* Doubled again to 96px */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+}
+
+.mobile-btn:active {
+    transform: scale(0.95);
+}
+
+.step-counter {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    padding: 10px 20px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Add grid-area assignments to buttons */
+.mobile-btn[data-direction="up"] { grid-area: up; }
+.mobile-btn[data-direction="down"] { grid-area: down; }
+.mobile-btn[data-direction="left"] { grid-area: left; }
+.mobile-btn[data-direction="right"] { grid-area: right; }
