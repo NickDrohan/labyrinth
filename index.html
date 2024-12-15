@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Labyrinth</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,13 +11,16 @@
     <button id="centerCameraButton">Center Camera</button>
     <button id="edgeCameraButton">Edge Camera</button>
     <div id="stepCounter">Steps: 0</div>
-    <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
     
-    <div class="mobile-controls">
-        <button class="mobile-btn" data-direction="up">↑</button>
-        <button class="mobile-btn" data-direction="left">←</button>
-        <button class="mobile-btn" data-direction="down">↓</button>
-        <button class="mobile-btn" data-direction="right">→</button>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
+        
+        <div class="mobile-controls">
+            <button class="mobile-btn" data-direction="up">↑</button>
+            <button class="mobile-btn" data-direction="left">←</button>
+            <button class="mobile-btn" data-direction="down">↓</button>
+            <button class="mobile-btn" data-direction="right">→</button>
+        </div>
     </div>
 
     <script src="mazeApp.js"></script>

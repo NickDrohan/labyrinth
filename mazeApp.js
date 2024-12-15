@@ -433,10 +433,17 @@ function initGame() {
 // Find the mobile button event handlers
 function initMobileControls() {
     document.querySelectorAll('.mobile-btn').forEach(btn => {
-        btn.addEventListener('touchstart', (e) => {
+        // Prevent double-tap zoom
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
             const direction = btn.dataset.direction;
             handleMobileMove(direction);
-        });
+        }, { passive: false });
+        
+        // Prevent default on touchstart to avoid any zooming
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+        }, { passive: false });
     });
 }
 

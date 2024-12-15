@@ -1,4 +1,17 @@
+/* Add viewport meta tag to prevent zooming */
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoom: fixed;
+}
+
 body {
+    /* Add these properties to prevent zooming */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* Keep existing body styles */
     margin: 0;
     padding: 0;
     display: flex;
@@ -24,6 +37,7 @@ h1 {
     border: 2px solid #4a90e2;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+    margin-bottom: 740px; /* Add space for controls - adjust based on your needs */
 }
 
 #touchArea {
@@ -100,3 +114,14 @@ h1 {
 .mobile-btn[data-direction="down"] { grid-area: down; }
 .mobile-btn[data-direction="left"] { grid-area: left; }
 .mobile-btn[data-direction="right"] { grid-area: right; }
+
+/* Update canvas and mobile controls positioning */
+.game-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
