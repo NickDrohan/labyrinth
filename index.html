@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Labyrinth</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.2/pixi.min.js"></script>
 </head>
 <body>
     <h1>Labyrinth</h1>
     <button id="centerCameraButton">Center Camera</button>
     <button id="edgeCameraButton">Edge Camera</button>
     <div id="stepCounter">Steps: 0</div>
+    <div id="uniqueTilesCounter">Unique Tiles: 1</div>
     
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
+<div id="winOverlay" class="win-overlay" style="display: none;">
+            You Escaped! Steps: 0
+        </div>
         
         <div class="mobile-controls">
             <button class="mobile-btn" data-direction="up">↑</button>

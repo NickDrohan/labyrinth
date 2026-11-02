@@ -1,4 +1,26 @@
 /* Add viewport meta tag to prevent zooming */
+#winOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    color: #FFD700;
+    font-family: Arial, sans-serif;
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    display: none;
+}
+
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoom: fixed;
+}
 @viewport {
     width: device-width;
     zoom: 1.0;
