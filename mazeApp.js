@@ -39,7 +39,31 @@ let minotaurX = -1;
 let minotaurY = -1;
 let minotaurActive = false;
 let minotaurPath = [];
+let torchPickups = [];
+let torchActive = false;
+let torchStepsRemaining = 0;
+const TORCH_EFFECT_STEPS = 30;
+const TORCH_RADIUS_NORMAL = 7;
+const TORCH_RADIUS_BOOSTED = 15;
+
+function isTorchTile(x, y) {
+  return torchPickups.some(t => t.x === x && t.y === y);
+}
 let gameLost = false;
+
+function updateTorchIndicator() {
+  const indicator = document.getElementById('torchIndicator');
+  if (torchActive && torchStepsRemaining > 0) {
+    if (indicator) {
+      indicator.textContent = torchStepsRemaining;
+    }
+  } else {
+    if (indicator) {
+      indicator.textContent = '';
+    }
+  }
+}
+
 const visitedTiles = new Set();
 const keys = [];
 const gates = [];
@@ -149,6 +173,37 @@ function drawMaze() {
             const mazeY = startY + y;
 
             if (mazeY >= 0 && mazeY < 1000 && mazeX >= 0 && mazeX < 1000) {
+                // Skip/darken tiles outside vision radius
+                const distToPlayer = Math.max(Math.abs(mazeX - playerX), Math.abs(mazeY - playerY));
+                const effectiveRadius = torchActive ? TORCH_RADIUS_BOOSTED : TORCH_RADIUS_NORMAL;
+                if (distToPlayer > effectiveRadius) {
+                    // Darken out-of-radius tiles
+                    mazeGraphics.beginFill(0x001f3f, 0.3);
+                    mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                    mazeGraphics.endFill();
+                    continue;
+                }
+
+                // Draw torch pickups as orange/yellow flame icons
+                if (torchPickups && torchPickups.length > 0) {
+                    for (let i = 0; i < torchPickups.length; i++) {
+                        if (torchPickups[i].x === mazeX && torchPickups[i].y === mazeY) {
+                            mazeGraphics.beginFill(0xffa500, 1);
+                            mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
+                            mazeGraphics.endFill();
+                            // Add flame detail
+                            mazeGraphics.beginFill(0xffd700, 1);
+                            mazeGraphics.moveTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 6);
+                            mazeGraphics.lineTo(x * tileSize + tileSize * 2 / 3, y * tileSize + tileSize / 3);
+                            mazeGraphics.lineTo(x * tileSize + tileSize / 3, y * tileSize + tileSize / 3);
+                            mazeGraphics.lineTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 4);
+                            mazeGraphics.closePath();
+                            mazeGraphics.endFill();
+                            break;
+                        }
+                    }
+                }
+
                 // Draw escape tile first (beneath player)
                 if (mazeX === escapeX && mazeY === escapeY) {
                     mazeGraphics.beginFill(0xffd700, 1);
@@ -566,6 +621,12 @@ function initGame() {
     }
     gates.length = 0;
 
+    // Reset torch state and pickups
+    torchPickups.length = 0;
+    torchActive = false;
+    torchStepsRemaining = 0;
+    updateTorchIndicator();
+
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
     visitedTiles.clear();
     visitedTiles.add(`${playerX},${playerY}`);
@@ -669,6 +730,21 @@ function initGame() {
         gates.push({x: gateCandidates[i].x, y: gateCandidates[i].y});
     }
 
+    // Place 10-20 torch pickups on valid path tiles, not overlapping player, escape, keys, or gates
+    const torchValidTiles = validPathTiles.filter(t =>
+        tileKey(t) !== tileKey(escapeTile) &&
+        tileKey(t) !== tileKey(playerTile) &&
+        !keys.some(k => k.x === t.x && k.y === t.y) &&
+        !gates.some(g => g.x === t.x && g.y === t.y)
+    );
+    // Shuffle and select 10-20 torch positions
+    torchValidTiles.sort(() => 0.5 - Math.random());
+    const numTorches = 10 + Math.floor(Math.random() * 11); // 10-20
+    const torchPositions = torchValidTiles.slice(0, numTorches);
+    for (const pos of torchPositions) {
+        torchPickups.push({x: pos.x, y: pos.y});
+    }
+
     minotaurPath = spawnMinotaur();
     let stepCount = 0; // Initialize step count
     drawMaze();
@@ -762,9 +838,9 @@ function initGame() {
             }
 
             // Check if the new tile is not in visitedTiles
-            const tileKey = `${playerX},${playerY}`;
-            if (!visitedTiles.has(tileKey)) {
-                visitedTiles.add(tileKey);
+            const tileKeyStr = `${playerX},${playerY}`;
+            if (!visitedTiles.has(tileKeyStr)) {
+                visitedTiles.add(tileKeyStr);
                 document.getElementById('uniqueTilesCounter').textContent = `Unique Tiles: ${visitedTiles.size}`;
             }
 
@@ -776,6 +852,25 @@ function initGame() {
                 document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
             }
 
+            // Torch pickup logic: after key pickup, before escape check
+            const torchIndex = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+            if (torchIndex !== -1) {
+                torchPickups.splice(torchIndex, 1);
+                torchActive = true;
+                torchStepsRemaining = TORCH_EFFECT_STEPS;
+                updateTorchIndicator();
+            }
+
+            // Torch effect decrement logic
+            if (torchActive) {
+                torchStepsRemaining--;
+                if (torchStepsRemaining <= 0) {
+                    torchActive = false;
+                    torchStepsRemaining = 0;
+                }
+                updateTorchIndicator();
+            }
+
             // Check if player reached escape tile
             if (playerX === escapeX && playerY === escapeY) {
                 gameWon = true; // Set win state
@@ -785,6 +880,10 @@ function initGame() {
                     overlay.textContent = `You Escaped! Steps: ${stepCount}, Unique Tiles: ${visitedTiles.size}, Keys: ${playerKeys}`;
                     overlay.style.display = 'flex';
                 }
+                // Torch effect ends on win
+                torchActive = false;
+                torchStepsRemaining = 0;
+                updateTorchIndicator();
                 drawMaze(); // Redraw maze with overlay on top
                 return;
             }
@@ -793,6 +892,7 @@ function initGame() {
         drawMaze(); // Redraw the maze and player
     });
 }
+
 
 
 
@@ -858,6 +958,15 @@ function handleMobileMove(direction) {
         playerKeys++;
         keys.splice(keyIdx, 1);
         document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+    }
+
+    // Check if the new position is a torch
+    const torchIdx = torchPickups.findIndex(t => t.x === newX && t.y === newY);
+    if (torchIdx !== -1) {
+        torchPickups.splice(torchIdx, 1);
+        torchActive = true;
+        torchStepsRemaining = TORCH_EFFECT_STEPS;
+        updateTorchIndicator();
     }
 
     // Check if the new position is a path (white tile)
