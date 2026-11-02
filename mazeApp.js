@@ -37,6 +37,9 @@ let playerX = 25; // Start in the middle of the visible section
 let playerY = 25;
 let minotaurX = -1;
 let minotaurY = -1;
+let minotaurActive = false;
+let minotaurPath = [];
+let gameLost = false;
 const visitedTiles = new Set();
 const keys = [];
 const gates = [];
@@ -179,6 +182,24 @@ function drawMaze() {
                     }
                 }
 
+                // Draw Minotaur as purple diamond - above path/keys/gates, below player
+                if (minotaurActive && minotaurX === mazeX && minotaurY === mazeY) {
+                    // Check if Minotaur is within viewport
+                    const inViewport = mazeX >= startX && mazeX < startX + visibleWidth && mazeY >= startY && mazeY < startY + visibleHeight;
+                    if (inViewport) {
+                        const diamondX = x * tileSize + tileSize / 2;
+                        const diamondY = y * tileSize + tileSize / 2;
+                        const radius = tileSize / 2 - 2;
+                        mazeGraphics.beginFill(0x8000ff, 1);
+                        mazeGraphics.moveTo(diamondX, diamondY - radius);
+                        mazeGraphics.lineTo(diamondX + radius, diamondY);
+                        mazeGraphics.lineTo(diamondX, diamondY + radius);
+                        mazeGraphics.lineTo(diamondX - radius, diamondY);
+                        mazeGraphics.closePath();
+                        mazeGraphics.endFill();
+                    }
+                }
+
                 if (mazeX === playerX && mazeY === playerY) {
                     // Draw player
                     mazeGraphics.beginFill(0xff0000, 1);
@@ -212,7 +233,7 @@ function drawMaze() {
         }
     }
 
-    drawMinotaur();
+    // Removed: drawMinotaur();
     pixiApp.render();
 }
 
@@ -308,13 +329,114 @@ function spawnMinotaur() {
     visited.add(`${playerX},${playerY}`);
     path.push({x: playerX, y: playerY});
 
-    if (generatePathDFS(playerX, playerY, path, visited, 50)) {
-        minotaurX = path[path.length - 1].x;
-        minotaurY = path[path.length - 1].y;
+    // BFS to find all valid spawn tiles at least 50 steps from the player
+    const queue = [{x: playerX, y: playerY, steps: 0}];
+    const bfsVisited = new Set();
+    bfsVisited.add(`${playerX},${playerY}`);
+    const validSpawnTiles = [];
+
+    const directions = [
+        {dx: 0, dy: -1},  // up
+        {dx: 0, dy: 1},   // down
+        {dx: -1, dy: 0},  // left
+        {dx: 1, dy: 0}    // right
+    ];
+
+    while (queue.length > 0) {
+        const {x, y, steps} = queue.shift();
+
+        // If we found a tile at least 50 steps away, collect it as a valid spawn
+        if (steps >= 50) {
+            validSpawnTiles.push({x, y});
+        }
+
+        for (const dir of directions) {
+            const nx = x + dir.dx;
+            const ny = y + dir.dy;
+            const key = `${nx},${ny}`;
+
+            // Check bounds, wall, and not already visited
+            if (nx >= 0 && nx < maze[0].length && ny >= 0 && ny < maze.length &&
+                maze[nx][ny] !== 1 && !bfsVisited.has(key)) {
+                bfsVisited.add(key);
+                queue.push({x: nx, y: ny, steps: steps + 1});
+            }
+        }
     }
 
-    // Invert the path
-    return path.reverse();
+    // If no tile found 50+ steps away, fall back to any valid tile not on player/escapetile
+    let spawnTile = null;
+    if (validSpawnTiles.length > 0) {
+        // Randomly select among all valid spawn tiles at least 50 steps away
+        const randomIndex = Math.floor(Math.random() * validSpawnTiles.length);
+        spawnTile = validSpawnTiles[randomIndex];
+    } else {
+        // Try to find any valid tile not on player or escape tile
+        for (let x = 0; x < maze[0].length && !spawnTile; x++) {
+            for (let y = 0; y < maze.length && !spawnTile; y++) {
+                const escapeKey = `${escapeTileX},${escapeTileY}`;
+                const playerKey = `${playerX},${playerY}`;
+                if (x !== playerX || y !== playerY) {
+                    if (!(x === escapeTileX && y === escapeTileY)) {
+                        if (maze[x][y] !== 1) {
+                            spawnTile = {x, y};
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Set Minotaur position
+    if (spawnTile) {
+        minotaurX = spawnTile.x;
+        minotaurY = spawnTile.y;
+    } else {
+        minotaurX = -1;
+        minotaurY = -1;
+    }
+
+    // Rebuild path from Minotaur to player using BFS with parent tracking
+    minotaurPath = [];
+    const pathVisited = new Set();
+    pathVisited.add(`${minotaurX},${minotaurY}`);
+    const pathQueue = [{x: minotaurX, y: minotaurY}];
+    const parentMap = new Map();
+    parentMap.set(`${minotaurX},${minotaurY}`, null);
+
+    while (pathQueue.length > 0) {
+        const {x, y} = pathQueue.shift();
+
+        // If we reached the player, stop and reconstruct path
+        if (x === playerX && y === playerY) {
+            // Reconstruct path from Minotaur to player using parent pointers
+            let cx = x, cy = y;
+            while (parentMap.get(`${cx},${cy}`) !== null) {
+                const parent = parentMap.get(`${cx},${cy}`);
+                minotaurPath.push({x: cx, y: cy});
+                cx = parent.x;
+                cy = parent.y;
+            }
+            minotaurPath.push({x: minotaurX, y: minotaurY});
+            break;
+        }
+
+        for (const dir of directions) {
+            const nx = x + dir.dx;
+            const ny = y + dir.dy;
+            const key = `${nx},${ny}`;
+
+            if (nx >= 0 && nx < maze[0].length && ny >= 0 && ny < maze.length &&
+                maze[nx][ny] !== 1 && !pathVisited.has(key)) {
+                pathVisited.add(key);
+                pathQueue.push({x: nx, y: ny});
+                parentMap.set(`${nx},${ny}`, {x, y});
+            }
+        }
+    }
+
+    // Invert so path goes from Minotaur toward player
+    return minotaurPath.reverse();
 }
 
 function drawMinotaur() {
@@ -437,6 +559,20 @@ function initGame() {
     playerKeys = 0;
     document.getElementById('keyCounter').textContent = 'Keys: 0';
     keys.length = 0;
+    gameLost = false;
+    const overlay = document.getElementById('loseOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    gates.length = 0;
+
+    // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
+    visitedTiles.clear();
+    visitedTiles.add(`${playerX},${playerY}`);
+    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
+    playerKeys = 0;
+    document.getElementById('keyCounter').textContent = 'Keys: 0';
+    keys.length = 0;
     gates.length = 0;
 
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
@@ -541,8 +677,8 @@ function initGame() {
 
     // Start minotaur behavior
     setInterval(() => {
-        if (gameWon) {
-            return; // Skip minotaur movement if game is won
+        if (gameWon || gameLost) {
+            return; // Skip minotaur movement if game is won or lost
         }
         if (minotaurPath.length > 0) {
             const nextPosition = minotaurPath.shift(); // Use shift to move towards the user
@@ -554,7 +690,11 @@ function initGame() {
 
                 // Check for collision with the user
                 if (minotaurX === playerX && minotaurY === playerY) {
-                    window.location.reload(); // Refresh the page
+                    gameLost = true;
+                    const overlay = document.getElementById('loseOverlay');
+                    if (overlay) {
+                        overlay.style.display = 'flex';
+                    }
                     return;
                 }
 
@@ -565,8 +705,8 @@ function initGame() {
 
     // Handle user movement
     document.addEventListener('keydown', (event) => {
-        if (gameWon) {
-            return; // Ignore player input if game is won
+        if (gameWon || gameLost) {
+            return; // Ignore player input if game is won or lost
         }
         let newX = playerX;
         let newY = playerY;
@@ -678,6 +818,10 @@ function handleMobileMove(direction) {
         return;
     }
 
+    if (gameLost) {
+        return;
+    }
+
     let newX = playerX;
     let newY = playerY;
 
@@ -750,3 +894,8 @@ function handleMobileMove(direction) {
 
 // Add this to your initialization code
 initMobileControls();
+
+// Restart button on the defeat overlay reloads the game
+document.getElementById('resetButton').addEventListener('click', () => {
+    window.location.reload();
+});
