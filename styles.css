@@ -28,6 +28,59 @@
 }
 
 body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #1a1a2e;
+    color: #ffffff;
+}
+
+.counters div {
+    float: left;
+    margin: 5px;
+    font-size: 1.2rem;
+}
+
+.legend {
+    clear: both;
+    font-size: 0.8rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    width: fit-content;
+}
+
+#keyCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #FFD700;
+    text-shadow: 1px 1px 2px #000;
+}
+
+#uniqueTilesCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffffff;
+}
+    align-items: center;
+    z-index: 1000;
+    display: none;
+}
+
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoom: fixed;
+}
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoom: fixed;
+}
+
+body {
     /* Add these properties to prevent zooming */
     touch-action: manipulation;
     -webkit-touch-callout: none;

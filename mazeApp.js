@@ -38,6 +38,11 @@ let playerY = 25;
 let minotaurX = -1;
 let minotaurY = -1;
 const visitedTiles = new Set();
+const keys = [];
+const gates = [];
+let playerKeys = 0;
+
+
 function selectEscapeTile() {
   let valid = false;
   let attempts = 0;
@@ -146,6 +151,32 @@ function drawMaze() {
                     mazeGraphics.beginFill(0xffd700, 1);
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                     mazeGraphics.endFill();
+                }
+
+                // Draw keys (gold key icon) - above path tiles, below player
+                if (keys && keys.length > 0) {
+                    for (let i = 0; i < keys.length; i++) {
+                        if (keys[i].x === mazeX && keys[i].y === mazeY) {
+                            mazeGraphics.beginFill(0xffd700, 1);
+                            mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
+                            mazeGraphics.endFill();
+                            // Draw key handle
+                            mazeGraphics.beginFill(0xb8860b, 1);
+                            mazeGraphics.drawRect(x * tileSize + tileSize / 4, y * tileSize + tileSize / 2 + tileSize / 6, tileSize / 4, tileSize / 6);
+                            mazeGraphics.endFill();
+                        }
+                    }
+                }
+
+                // Draw gates (blue gate icon) - above path tiles, below player
+                if (gates && gates.length > 0) {
+                    for (let i = 0; i < gates.length; i++) {
+                        if (gates[i].x === mazeX && gates[i].y === mazeY) {
+                            mazeGraphics.beginFill(0x0000ff, 1);
+                            mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 8);
+                            mazeGraphics.endFill();
+                        }
+                    }
                 }
 
                 if (mazeX === playerX && mazeY === playerY) {
@@ -403,9 +434,107 @@ function initGame() {
     visitedTiles.clear();
     visitedTiles.add(`${playerX},${playerY}`);
     document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
+    playerKeys = 0;
+    document.getElementById('keyCounter').textContent = 'Keys: 0';
+    keys.length = 0;
+    gates.length = 0;
+
+    // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
+    function findShortestPath(sx, sy, ex, ey) {
+        const parent = {};
+        const queue = [{x: sx, y: sy}];
+        const visited = Array.from({length: maze.length}, () => Array(maze[0].length).fill(false));
+        visited[sy][sx] = true;
+        const dirs = [
+            {dx: 0, dy: -1},
+            {dx: 0, dy: 1},
+            {dx: -1, dy: 0},
+            {dx: 1, dy: 0}
+        ];
+        while (queue.length > 0) {
+            const {x, y} = queue.shift();
+            if (x === ex && y === ey) {
+                // Reconstruct path using parent pointers
+                const path = [];
+                let cx = x, cy = y;
+                while (!(cx === sx && cy === sy)) {
+                    path.push({x: cx, y: cy});
+                    const p = parent[`${cx},${cy}`];
+                    cx = p.x;
+                    cy = p.y;
+                }
+                path.reverse();
+                return path;
+            }
+            for (const {dx, dy} of dirs) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (
+                    ny >= 0 && ny < maze.length &&
+                    nx >= 0 && nx < maze[0].length &&
+                    maze[ny][nx] === 1 &&
+                    !visited[ny][nx]
+                ) {
+                    visited[ny][nx] = true;
+                    parent[`${nx},${ny}`] = {x, y};
+                    queue.push({x: nx, y: ny});
+                }
+            }
+        }
+        return null; // No path
+    }
+
+    // Place keys: 3-5 on valid path tiles, not on player, escape, or each other
+    const validPathTiles = [];
+    for (let y = 0; y < maze.length; y++) {
+        for (let x = 0; x < maze[y].length; x++) {
+            if (maze[y][x] === 1) {
+                validPathTiles.push({x, y});
+            }
+        }
+    }
+    // Remove player and escape from validPathTiles
+    const escapeTile = {x: escapeX, y: escapeY};
+    const playerTile = {x: playerX, y: playerY};
+    function tileKey(t) { return `${t.x},${t.y}`; }
+    let availableTiles = validPathTiles.filter(t => tileKey(t) !== tileKey(escapeTile) && tileKey(t) !== tileKey(playerTile));
+    // Shuffle availableTiles
+    availableTiles = availableTiles.sort(() => 0.5 - Math.random());
+    const numKeys = 3 + Math.floor(Math.random() * 3); // 3-5 keys
+    for (let i = 0; i < numKeys && i < availableTiles.length; i++) {
+        keys.push({x: availableTiles[i].x, y: availableTiles[i].y});
+    }
+
+    // Place gates: 1-2 on shortest path from player to escape, not on player, escape, or keys
+
+    // Select escape tile first to ensure escapeX/escapeY are set
+    selectEscapeTile();
+
+    // Find shortest path
+    const pathToEscape = findShortestPath(playerX, playerY, escapeX, escapeY);
+    let gateCandidates = [];
+    if (pathToEscape && pathToEscape.length > 2) {
+        // Exclude player and escape tile from gate candidates
+        gateCandidates = pathToEscape.slice(1, pathToEscape.length - 1)
+            .filter(pt => !keys.some(k => k.x === pt.x && k.y === pt.y));
+    }
+    // If not enough path tiles, fallback to any available path tile not occupied
+    if (gateCandidates.length === 0) {
+        gateCandidates = validPathTiles.filter(t =>
+            tileKey(t) !== tileKey(escapeTile) &&
+            tileKey(t) !== tileKey(playerTile) &&
+            !keys.some(k => k.x === t.x && k.y === t.y)
+        );
+    }
+    // Shuffle gate candidates
+    gateCandidates = gateCandidates.sort(() => 0.5 - Math.random());
+    const numGates = Math.min(1 + Math.floor(Math.random() * 2), gateCandidates.length); // 1-2 gates
+    for (let i = 0; i < numGates; i++) {
+        gates.push({x: gateCandidates[i].x, y: gateCandidates[i].y});
+    }
+
     minotaurPath = spawnMinotaur();
     let stepCount = 0; // Initialize step count
-    selectEscapeTile(); // Place escape tile before first draw
     drawMaze();
 
     setupMobileControls(); // Initialize mobile controls
@@ -467,6 +596,21 @@ function initGame() {
 
         // Check if the new position is a path (white tile)
         if (maze[newY] && maze[newY][newX] === 1) {
+            // Check if the new tile contains a gate
+            const gateIndex = gates.findIndex(g => g.x === newX && g.y === newY);
+            if (gateIndex !== -1) {
+                if (playerKeys > 0) {
+                    playerKeys--;
+                    gates.splice(gateIndex, 1);
+                    document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+                } else {
+                    // Block movement and trigger feedback
+                    document.body.style.backgroundColor = '#ffcccc';
+                    setTimeout(() => { document.body.style.backgroundColor = ''; }, 100);
+                    return;
+                }
+            }
+
             playerX = newX; // Update player position
             playerY = newY; // Update player position
 
@@ -484,13 +628,21 @@ function initGame() {
                 document.getElementById('uniqueTilesCounter').textContent = `Unique Tiles: ${visitedTiles.size}`;
             }
 
+            // Check if the new tile contains a key
+            const keyIndex = keys.findIndex(k => k.x === playerX && k.y === playerY);
+            if (keyIndex !== -1) {
+                playerKeys++;
+                keys.splice(keyIndex, 1);
+                document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+            }
+
             // Check if player reached escape tile
             if (playerX === escapeX && playerY === escapeY) {
                 gameWon = true; // Set win state
                 // Display win overlay using persistent overlay element
                 const overlay = document.getElementById('winOverlay');
                 if (overlay) {
-                    overlay.textContent = `You Escaped! Steps: ${stepCount}, Unique Tiles: ${visitedTiles.size}`;
+                    overlay.textContent = `You Escaped! Steps: ${stepCount}, Unique Tiles: ${visitedTiles.size}, Keys: ${playerKeys}`;
                     overlay.style.display = 'flex';
                 }
                 drawMaze(); // Redraw maze with overlay on top
@@ -501,6 +653,7 @@ function initGame() {
         drawMaze(); // Redraw the maze and player
     });
 }
+
 
 
 // Find the mobile button event handlers
@@ -524,28 +677,76 @@ function handleMobileMove(direction) {
     if (gameWon) {
         return;
     }
-    
+
     let newX = playerX;
     let newY = playerY;
-    
+
     switch(direction) {
         case 'up': newY--; break;
         case 'down': newY++; break;
         case 'left': newX--; break;
         case 'right': newX++; break;
     }
-    
+
+    // Check if the new position is a gate
+    const gateIdx = gates.findIndex(g => g.x === newX && g.y === newY);
+    if (gateIdx !== -1) {
+        if (playerKeys > 0) {
+            playerKeys--;
+            gates.splice(gateIdx, 1);
+            
+            document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+            // Remove the gate from the maze
+            maze[newY][newX] = 1;
+            // Recursively move into the now-open tile
+            return handleMobileMove(direction);
+        } else {
+            // Block movement and give feedback - brief color flash
+            document.body.style.backgroundColor = '#FF0000';
+            setTimeout(() => { document.body.style.backgroundColor = ''; }, 50);
+            return;
+        }
+    }
+
+    // Check if the new position is a key
+    const keyIdx = keys.findIndex(k => k.x === newX && k.y === newY);
+    if (keyIdx !== -1) {
+        playerKeys++;
+        keys.splice(keyIdx, 1);
+        document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+    }
+
     // Check if the new position is a path (white tile)
     if (maze[newY] && maze[newY][newX] === 1) {
         playerX = newX;
         playerY = newY;
-        // Track unique tiles visited        const tileKey = `${playerX},${playerY}`;        if (!visitedTiles.has(tileKey)) {            visitedTiles.add(tileKey);            document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;        }                // Update minotaur path        if (minotaurPath.length > 0 && 
-            minotaurPath[minotaurPath.length - 1].x === playerX && 
+
+        // Track unique tiles visited
+        const tileKey = `${playerX},${playerY}`;
+        if (!visitedTiles.has(tileKey)) {
+            visitedTiles.add(tileKey);
+            document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
+        }
+
+        // Update minotaur path
+        if (minotaurPath.length > 0 &&
+            minotaurPath[minotaurPath.length - 1].x === playerX &&
             minotaurPath[minotaurPath.length - 1].y === playerY) {
-            minotaurPath.pop(); // Remove the repeated position        } else {
-            minotaurPath.push({x: playerX, y: playerY}); // Append to minotaur path        }
-        if (playerX === escapeX && playerY === escapeY) {            gameWon = true;            const overlay = document.getElementById('winOverlay');            overlay.textContent = 'You Escaped! Steps: ' + document.getElementById('stepCounter').textContent + ', Unique Tiles: ' + visitedTiles.size;            overlay.style.display = 'flex';        }        drawMaze();    }
+            minotaurPath.pop(); // Remove the repeated position
+        } else {
+            minotaurPath.push({x: playerX, y: playerY}); // Append to minotaur path
+        }
+
+        if (playerX === escapeX && playerY === escapeY) {
+            gameWon = true;
+            const overlay = document.getElementById('winOverlay');
+            overlay.textContent = 'You Escaped! Steps: ' + document.getElementById('stepCounter').textContent + ', Unique Tiles: ' + visitedTiles.size + ', Keys: ' + playerKeys;
+            overlay.style.display = 'flex';
+        }
+        drawMaze();
+    }
 }
+
 
 // Add this to your initialization code
 initMobileControls();
