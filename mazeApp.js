@@ -1,4 +1,24 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Ensure secret passage message element exists
+    if (!document.getElementById('secretPassageMessage')) {
+        const msgDiv = document.createElement('div');
+        msgDiv.id = 'secretPassageMessage';
+        msgDiv.style.position = 'absolute';
+        msgDiv.style.top = '40px';
+        msgDiv.style.left = '50%';
+        msgDiv.style.transform = 'translateX(-50%)';
+        msgDiv.style.background = 'rgba(80,0,120,0.85)';
+        msgDiv.style.color = '#fff';
+        msgDiv.style.padding = '8px 18px';
+        msgDiv.style.borderRadius = '12px';
+        msgDiv.style.fontFamily = 'Arial, sans-serif';
+        msgDiv.style.fontSize = '1.2rem';
+        msgDiv.style.textShadow = '1px 1px 2px #000';
+        msgDiv.style.zIndex = '1001';
+        msgDiv.style.display = 'none';
+        msgDiv.style.pointerEvents = 'none';
+        document.body.appendChild(msgDiv);
+    }
     // Call initGame instead of individual initialization calls
     initGame();
 
@@ -16,6 +36,80 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Helper to show and fade secret passage message
+let secretPassageMsgTimeout = null;
+let secretPassageFadeTimeout = null;
+function showSecretPassageMessage() {
+    const msgDiv = document.getElementById('secretPassageMessage');
+    if (!msgDiv) return;
+    msgDiv.textContent = 'You found a secret passage!';
+    msgDiv.style.transition = '';
+    msgDiv.style.opacity = '1';
+    msgDiv.style.display = 'block';
+    if (secretPassageMsgTimeout) {
+        clearTimeout(secretPassageMsgTimeout);
+    }
+    if (secretPassageFadeTimeout) {
+        clearTimeout(secretPassageFadeTimeout);
+    }
+    secretPassageMsgTimeout = setTimeout(() => {
+        msgDiv.style.transition = 'opacity 0.4s';
+        msgDiv.style.opacity = '0';
+        setTimeout(() => {
+            msgDiv.style.display = 'none';
+            msgDiv.style.transition = '';
+        }, 400);
+    }, 1500);
+    secretPassageFadeTimeout = setTimeout(() => {
+        msgDiv.style.display = 'none';
+        msgDiv.style.transition = '';
+    }, 1900);
+}
+// Debug utility to reveal all secret passage locations
+window.revealSecretPassages = function() {
+    if (!window.secretPassages || !Array.isArray(window.secretPassages)) {
+        console.log('No secret passages to reveal.');
+        return;
+    }
+    // Set debug mode
+    debugMode = true;
+    // Compute active camera viewport origin based on camera mode
+    let startX, startY;
+    if (cameraMode === 'center') {
+        startX = playerX - Math.floor(visibleWidth / 2);
+        startY = playerY - Math.floor(visibleHeight / 2);
+    } else {
+        // cameraMode === 'edge'
+        startX = Math.floor(playerX / visibleWidth) * visibleWidth;
+        startY = Math.floor(playerY / visibleHeight) * visibleHeight;
+    }
+    // Overlay on canvas using PIXI
+    const overlayLayerId = '__secretPassageOverlay';
+    let overlay = pixiApp.stage.getChildByName(overlayLayerId);
+    if (overlay) {
+        pixiApp.stage.removeChild(overlay);
+        overlay.destroy();
+    }
+    overlay = new PIXI.Graphics();
+    overlay.name = overlayLayerId;
+    for (const passage of window.secretPassages) {
+        // 'from' tile: magenta rectangle at adjusted coordinates
+        overlay.lineStyle(3, 0xff00ff, 0.9);
+        overlay.drawRect((passage.fromX - startX) * tileSize, (passage.fromY - startY) * tileSize, tileSize, tileSize);
+        // 'to' tile: cyan rectangle at adjusted coordinates
+        overlay.lineStyle(3, 0x00ffff, 0.9);
+        overlay.drawRect((passage.toX - startX) * tileSize, (passage.toY - startY) * tileSize, tileSize, tileSize);
+    }
+    // Draw maze before overlay
+    drawMaze();
+    pixiApp.stage.addChild(overlay);
+    pixiApp.render();
+    // Also log coordinates for automated validation
+    console.log('Secret passages:', window.secretPassages.map(p => ({from:[p.fromX,p.fromY], to:[p.toX,p.toY]})));
+    // Return secret passages
+    return window.secretPassages;
+};
+
 // Move ALL global variables to the very top of the file
 const canvas = document.getElementById('gameCanvas');
 const pixiApp = new PIXI.Application({
@@ -32,12 +126,16 @@ const tileSize = 16; // Size of each tile
 const visibleWidth = 50; // Number of tiles to display in width
 const visibleHeight = 50; // Number of tiles to display in height
 
-// Initialize player and minotaur positions
 let playerX = 25; // Start in the middle of the visible section
 let playerY = 25;
 let minotaurX = -1;
 let minotaurY = -1;
 let minotaurActive = false;
+let minotaurInterval = null;
+let secretPassages = [];
+window.secretPassages = secretPassages;
+let debugMode = false;
+
 let minotaurPath = [];
 let torchPickups = [];
 let torchActive = false;
@@ -101,6 +199,92 @@ function selectEscapeTile() {
   }
 }
 
+
+// Helper to get all forbidden tiles (player, escape, keys, gates, torches)
+function getForbiddenTiles() {
+  const forbidden = new Set();
+  forbidden.add(`${playerX},${playerY}`);
+  forbidden.add(`${escapeX},${escapeY}`);
+  if (Array.isArray(keys)) {
+    for (const k of keys) forbidden.add(`${k.x},${k.y}`);
+  }
+  if (Array.isArray(gates)) {
+    for (const g of gates) forbidden.add(`${g.x},${g.y}`);
+  }
+  if (Array.isArray(torchPickups)) {
+    for (const t of torchPickups) forbidden.add(`${t.x},${t.y}`);
+  }
+  return forbidden;
+}
+
+// Helper to get all valid path tiles not near forbidden tiles
+function getCandidatePathTiles(minDist = 3) {
+  const forbidden = getForbiddenTiles();
+  const candidates = [];
+  for (let y = 0; y < maze.length; y++) {
+    for (let x = 0; x < maze[0].length; x++) {
+      if (maze[y][x] !== 1) continue;
+      let tooClose = false;
+      for (let dy = -minDist; dy <= minDist && !tooClose; dy++) {
+        for (let dx = -minDist; dx <= minDist && !tooClose; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (forbidden.has(`${nx},${ny}`)) tooClose = true;
+        }
+      }
+      if (!tooClose) candidates.push({x, y});
+    }
+  }
+  return candidates;
+}
+
+// Returns Manhattan distance
+function tileDist(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+// Place secret passages
+function placeSecretPassages() {
+  if (pixiApp && pixiApp.stage) {
+    const existingOverlay = pixiApp.stage.getChildByName('__secretPassageOverlay');
+    if (existingOverlay) {
+      existingOverlay.destroy();
+    }
+  }
+  secretPassages.length = 0;
+  window.secretPassages = secretPassages;
+  const minPairs = 3, maxPairs = 6, minDistance = 40;
+  const candidates = getCandidatePathTiles(3);
+  if (candidates.length < 2 * minPairs) return; // Not enough space
+  const used = new Set();
+  let attempts = 0;
+  const pairs = Math.min(maxPairs, Math.max(minPairs, Math.floor(Math.random() * (maxPairs - minPairs + 1)) + minPairs));
+  while (secretPassages.length < pairs && attempts < 2000) {
+    attempts++;
+    // Pick random 'from'
+    const fromIdx = Math.floor(Math.random() * candidates.length);
+    const from = candidates[fromIdx];
+    if (used.has(`${from.x},${from.y}`)) continue;
+    // Find a distant 'to'
+    let bestTo = null, bestDist = 0;
+    for (let i = 0; i < 20; i++) {
+      const toIdx = Math.floor(Math.random() * candidates.length);
+      if (toIdx === fromIdx) continue;
+      const to = candidates[toIdx];
+      if (used.has(`${to.x},${to.y}`)) continue;
+      const dist = tileDist(from, to);
+      if (dist >= minDistance && dist > bestDist) {
+        bestTo = to;
+        bestDist = dist;
+      }
+    }
+    if (bestTo) {
+      secretPassages.push({fromX: from.x, fromY: from.y, toX: bestTo.x, toY: bestTo.y});
+      used.add(`${from.x},${from.y}`);
+      used.add(`${bestTo.x},${bestTo.y}`);
+    }
+  }
+  window.secretPassages = secretPassages;
+}
 
 // Escape tile position and win state globals
 let escapeX = -1;
@@ -167,6 +351,8 @@ function drawMaze() {
         startY = Math.floor(playerY / visibleHeight) * visibleHeight;
     }
 
+
+
     for (let y = 0; y < visibleHeight; y++) {
         for (let x = 0; x < visibleWidth; x++) {
             const mazeX = startX + x;
@@ -226,69 +412,106 @@ function drawMaze() {
                     }
                 }
 
-                // Draw gates (blue gate icon) - above path tiles, below player
+                // Draw gates
                 if (gates && gates.length > 0) {
                     for (let i = 0; i < gates.length; i++) {
                         if (gates[i].x === mazeX && gates[i].y === mazeY) {
                             mazeGraphics.beginFill(0x0000ff, 1);
-                            mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 8);
+                            mazeGraphics.drawRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                             mazeGraphics.endFill();
                         }
                     }
                 }
 
-                // Draw Minotaur as purple diamond - above path/keys/gates, below player
-                if (minotaurActive && minotaurX === mazeX && minotaurY === mazeY) {
-                    // Check if Minotaur is within viewport
-                    const inViewport = mazeX >= startX && mazeX < startX + visibleWidth && mazeY >= startY && mazeY < startY + visibleHeight;
-                    if (inViewport) {
-                        const diamondX = x * tileSize + tileSize / 2;
-                        const diamondY = y * tileSize + tileSize / 2;
-                        const radius = tileSize / 2 - 2;
-                        mazeGraphics.beginFill(0x8000ff, 1);
-                        mazeGraphics.moveTo(diamondX, diamondY - radius);
-                        mazeGraphics.lineTo(diamondX + radius, diamondY);
-                        mazeGraphics.lineTo(diamondX, diamondY + radius);
-                        mazeGraphics.lineTo(diamondX - radius, diamondY);
-                        mazeGraphics.closePath();
-                        mazeGraphics.endFill();
+                // Draw torches
+                if (torchPickups && torchPickups.length > 0) {
+                    for (let i = 0; i < torchPickups.length; i++) {
+                        if (torchPickups[i].x === mazeX && torchPickups[i].y === mazeY) {
+                            mazeGraphics.beginFill(0xffa500, 1);
+                            mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
+                            mazeGraphics.endFill();
+                            // Add flame detail
+                            mazeGraphics.beginFill(0xffd700, 1);
+                            mazeGraphics.moveTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 6);
+                            mazeGraphics.lineTo(x * tileSize + tileSize * 2 / 3, y * tileSize + tileSize / 3);
+                            mazeGraphics.lineTo(x * tileSize + tileSize / 3, y * tileSize + tileSize / 3);
+                            mazeGraphics.lineTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 4);
+                            mazeGraphics.closePath();
+                            mazeGraphics.endFill();
+                            break;
+                        }
                     }
                 }
 
-                if (mazeX === playerX && mazeY === playerY) {
-                    // Draw player
-                    mazeGraphics.beginFill(0xff0000, 1);
-                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
-                    mazeGraphics.endFill();
-                    mazeGraphics.lineStyle(3, 0xffd700, 1);
-                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
-                    mazeGraphics.lineStyle(0);
-                } else if (maze[mazeY][mazeX] === 1) {
-                    // Draw maze tile
-                    const isAdjacentToWall = (
-                        (mazeX > 0 && maze[mazeY][mazeX - 1] === 0) || // Left
-                        (mazeX < 999 && maze[mazeY][mazeX + 1] === 0) || // Right
-                        (mazeY > 0 && maze[mazeY - 1][mazeX] === 0) || // Up
-                        (mazeY < 999 && maze[mazeY + 1][mazeX] === 0) // Down
-                    );
-
-                    if (isAdjacentToWall) {
-                        // Feathered edge: larger, more translucent underlay
-                        mazeGraphics.beginFill(0x00bfff, 0.25);
-                        mazeGraphics.drawRoundedRect(x * tileSize - 2, y * tileSize - 2, tileSize + 4, tileSize + 4, 6);
-                        mazeGraphics.endFill();
-                    }
-
-                    // Opaque path
+                // Draw path tiles
+                if (maze[mazeY][mazeX] === 1) {
                     mazeGraphics.beginFill(0x00bfff, 1);
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                    mazeGraphics.endFill();
+                }
+
+                // Draw secret passage 'from' tiles as swirling purple portals ON TOP of path tiles
+                if (secretPassages && secretPassages.length > 0) {
+                    for (let i = 0; i < secretPassages.length; i++) {
+                        const passage = secretPassages[i];
+                        // Check if passage 'from' tile is within viewport and matches current tile
+                        const inViewport = passage.fromX >= startX && passage.fromX < startX + visibleWidth && passage.fromY >= startY && passage.fromY < startY + visibleHeight;
+                        if (inViewport && passage.fromX === mazeX && passage.fromY === mazeY) {
+                            const x = passage.fromX - startX;
+                            const y = passage.fromY - startY;
+                            const tileX = x * tileSize + tileSize / 2;
+                            const tileY = y * tileSize + tileSize / 2;
+                            const radius = tileSize / 2 - 4;
+                            // Draw swirling purple portal with multiple arcs
+                            mazeGraphics.beginFill(0x8000ff, 0.7);
+                            for (let a = 0; a < 12; a++) {
+                                const angle = (a / 12) * Math.PI * 2 + (i * 0.3 + performance.now() / 500) % (Math.PI * 2);
+                                const r = radius * (0.7 + (a % 2 === 0 ? 0.15 : 0));
+                                const px = tileX + Math.cos(angle) * r;
+                                const py = tileY + Math.sin(angle) * r;
+                                if (a === 0) {
+                                    mazeGraphics.moveTo(px, py);
+                                } else {
+                                    mazeGraphics.lineTo(px, py);
+                                }
+                            }
+                            mazeGraphics.closePath();
+                            mazeGraphics.endFill();
+                            // Draw inner light-purple swirl core
+                            mazeGraphics.beginFill(0xd870ff, 0.85);
+                            mazeGraphics.drawCircle(tileX, tileY, Math.max(2, radius * 0.35));
+                            mazeGraphics.endFill();
+                        }
+                    }
+                }
+
+                // Draw debug 'to' tile circles when enabled
+                if (debugMode) {
+                    if (secretPassages && secretPassages.length > 0) {
+                        for (let i = 0; i < secretPassages.length; i++) {
+                            const passage = secretPassages[i];
+                            const inToViewport = passage.toX >= startX && passage.toX < startX + visibleWidth && passage.toY >= startY && passage.toY < startY + visibleHeight;
+                            if (inToViewport && passage.toX === mazeX && passage.toY === mazeY) {
+                                const tx = (passage.toX - startX) * tileSize + tileSize / 2;
+                                const ty = (passage.toY - startY) * tileSize + tileSize / 2;
+                                mazeGraphics.beginFill(0x8000ff, 0.15);
+                                mazeGraphics.drawCircle(tx, ty, tileSize / 4);
+                                mazeGraphics.endFill();
+                            }
+                        }
+                    }
+                }
+
+                // Draw player last (on top of everything)
+                if (mazeX === playerX && mazeY === playerY) {
+                    mazeGraphics.beginFill(0xff0000, 1);
+                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2);
                     mazeGraphics.endFill();
                 }
             }
         }
     }
-
-    // Removed: drawMinotaur();
+    drawMinotaur();
     pixiApp.render();
 }
 
@@ -298,6 +521,11 @@ function drawMaze() {
 // Add mobile touch controls
 function setupMobileControls() {
     const canvas = document.getElementById('gameCanvas');
+    if (!canvas || canvas.dataset.mobileControlsInitialized || canvas._mobileControlsInitialized) {
+        return;
+    }
+    canvas.dataset.mobileControlsInitialized = 'true';
+    canvas._mobileControlsInitialized = true;
     let startX, startY;
 
     canvas.addEventListener('touchstart', (event) => {
@@ -314,30 +542,19 @@ function setupMobileControls() {
         const diffX = endX - startX;
         const diffY = endY - startY;
 
-        let newX = playerX;
-        let newY = playerY;
-
         if (Math.abs(diffX) > Math.abs(diffY)) {
             if (diffX > 0) {
-                newX++; // Move right
+                handleMobileMove('right');
             } else {
-                newX--; // Move left
+                handleMobileMove('left');
             }
         } else {
             if (diffY > 0) {
-                newY++; // Move down
+                handleMobileMove('down');
             } else {
-                newY--; // Move up
+                handleMobileMove('up');
             }
         }
-
-        // Check if the new position is a path (white tile)
-        if (maze[newY] && maze[newY][newX] === 1) {
-            playerX = newX; // Update player position
-            playerY = newY; // Update player position
-        }
-
-        drawMaze(); // Redraw the maze and player
     });
 }
 
@@ -608,17 +825,27 @@ async function findPathToPlayer() {
 
 // Move the initialization code to the bottom of the file
 function initGame() {
+    // Hide secret passage message and clear timeout on reset
+    const secretPassageMessageEl = document.getElementById('secretPassageMessage');
+    if (secretPassageMessageEl) {
+        secretPassageMessageEl.style.display = 'none';
+        if (secretPassageMsgTimeout) {
+            clearTimeout(secretPassageMsgTimeout);
+            secretPassageMsgTimeout = null;
+        }
+    }
+
+    gameWon = false;
+    gameLost = false;
+    document.getElementById('winOverlay').style.display = 'none';
+    document.getElementById('loseOverlay').style.display = 'none';
+
     visitedTiles.clear();
     visitedTiles.add(`${playerX},${playerY}`);
     document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
     playerKeys = 0;
     document.getElementById('keyCounter').textContent = 'Keys: 0';
     keys.length = 0;
-    gameLost = false;
-    const overlay = document.getElementById('loseOverlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
     gates.length = 0;
 
     // Reset torch state and pickups
@@ -626,6 +853,9 @@ function initGame() {
     torchActive = false;
     torchStepsRemaining = 0;
     updateTorchIndicator();
+
+    // Select escape tile first to ensure escapeX/escapeY are set
+    selectEscapeTile();
 
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
     visitedTiles.clear();
@@ -704,9 +934,6 @@ function initGame() {
 
     // Place gates: 1-2 on shortest path from player to escape, not on player, escape, or keys
 
-    // Select escape tile first to ensure escapeX/escapeY are set
-    selectEscapeTile();
-
     // Find shortest path
     const pathToEscape = findShortestPath(playerX, playerY, escapeX, escapeY);
     let gateCandidates = [];
@@ -745,6 +972,14 @@ function initGame() {
         torchPickups.push({x: pos.x, y: pos.y});
     }
 
+    // Clear any previous secret passages and place new ones
+    secretPassages.length = 0;
+    placeSecretPassages();
+
+    // Clear any previous minotaur setInterval timer
+    clearInterval(minotaurInterval);
+    minotaurInterval = null;
+
     minotaurPath = spawnMinotaur();
     let stepCount = 0; // Initialize step count
     drawMaze();
@@ -752,7 +987,7 @@ function initGame() {
     setupMobileControls(); // Initialize mobile controls
 
     // Start minotaur behavior
-    setInterval(() => {
+    minotaurInterval = setInterval(() => {
         if (gameWon || gameLost) {
             return; // Skip minotaur movement if game is won or lost
         }
@@ -887,11 +1122,49 @@ function initGame() {
                 drawMaze(); // Redraw maze with overlay on top
                 return;
             }
+
+            // Check for secret passage teleportation
+            const passage = secretPassages.find(p => p.fromX === playerX && p.fromY === playerY);
+            if (passage) {
+                // Teleport player to destination
+                playerX = passage.toX;
+                playerY = passage.toY;
+
+                // Update visited tiles and counters
+                const newTileKey = `${playerX},${playerY}`;
+                if (!visitedTiles.has(newTileKey)) {
+                    visitedTiles.add(newTileKey);
+                    document.getElementById('uniqueTilesCounter').textContent = `Unique Tiles: ${visitedTiles.size}`;
+                }
+
+                // Update minotaur path with the teleported position
+                if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) {
+                    minotaurPath.pop();
+                } else {
+                    minotaurPath.push({x: playerX, y: playerY});
+                }
+
+                showSecretPassageMessage();
+
+                // Check if the minotaur is at the destination
+                if (minotaurX === playerX && minotaurY === playerY) {
+                    gameLost = true;
+                    const loseOverlay = document.getElementById('loseOverlay');
+                    if (loseOverlay) {
+                        loseOverlay.style.display = 'flex';
+                    }
+                }
+
+                drawMaze();
+                return;
+            }
+
         }
 
         drawMaze(); // Redraw the maze and player
     });
 }
+
 
 
 
@@ -988,6 +1261,56 @@ function handleMobileMove(direction) {
             minotaurPath.pop(); // Remove the repeated position
         } else {
             minotaurPath.push({x: playerX, y: playerY}); // Append to minotaur path
+        }
+
+        // Check for secret passage teleportation after moving onto a new tile
+        const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
+        if (passageIdx !== -1) {
+            // Decrement active torch steps consistently with keyboard movement
+            if (torchActive) {
+                torchStepsRemaining--;
+                if (torchStepsRemaining <= 0) {
+                    torchActive = false;
+                    torchStepsRemaining = 0;
+                }
+                updateTorchIndicator();
+            }
+
+            // Teleport player to the paired destination
+            playerX = secretPassages[passageIdx].toX;
+            playerY = secretPassages[passageIdx].toY;
+
+            // Update visited tiles tracking
+            const tileKey = `${playerX},${playerY}`;
+            if (!visitedTiles.has(tileKey)) {
+                visitedTiles.add(tileKey);
+                document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
+            }
+
+            // Update minotaur path
+            if (minotaurPath.length > 0 &&
+                minotaurPath[minotaurPath.length - 1].x === playerX &&
+                minotaurPath[minotaurPath.length - 1].y === playerY) {
+                minotaurPath.pop();
+            } else {
+                minotaurPath.push({x: playerX, y: playerY});
+            }
+
+            // Show secret passage message
+            showSecretPassageMessage();
+
+            // Check if minotaur is at destination (lose condition)
+            if (playerX === minotaurX && playerY === minotaurY) {
+                gameLost = true;
+                const overlay = document.getElementById('loseOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    // Preserve existing textContent so #resetButton child element remains intact
+                }
+            }
+
+            drawMaze();
+            return;
         }
 
         if (playerX === escapeX && playerY === escapeY) {

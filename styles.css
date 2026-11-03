@@ -61,6 +61,12 @@ body {
     width: fit-content;
 }
 
+.secret-passage-icon {
+    margin-left: 8px;
+    color: #b266ff;
+    vertical-align: middle;
+}
+
 #keyCounter {
     float: left;
     font-size: 1.2rem;
