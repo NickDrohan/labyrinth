@@ -79,6 +79,60 @@ body {
     font-size: 1.2rem;
     color: #ffffff;
 }
+
+#spoolCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #00e5ff;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#compassIndicator {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffd700;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#compassIndicator.active {
+    color: #00e5ff;
+    font-weight: bold;
+}
+
+#useSpoolButton {
+    background: #1f4068;
+    color: #00e5ff;
+    border: 1px solid #00e5ff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#useSpoolButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.lose-overlay {
+    align-items: center;
+    z-index: 1000;
+    display: none;
+}
+
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoom: fixed;
+}
+@viewport {
+    width: device-width;
+    zoom: 1.0;
+    user-zoo
+}
 .lose-overlay {
     align-items: center;
     z-index: 1000;
