@@ -231,6 +231,12 @@ function getForbiddenTiles() {
   if (Array.isArray(threadSpools)) {
     for (const s of threadSpools) forbidden.add(`${s.x},${s.y}`);
   }
+  if (Array.isArray(secretPassages)) {
+    for (const p of secretPassages) {
+      forbidden.add(`${p.fromX},${p.fromY}`);
+      forbidden.add(`${p.toX},${p.toY}`);
+    }
+  }
   return forbidden;
 }
 
@@ -346,25 +352,81 @@ function placeThreadSpools() {
   threadSpools.length = 0;
   window.threadSpools = threadSpools;
 
-  const candidates = getCandidatePathTiles(5).filter(tile =>
-    !secretPassages.some(passage =>
-      Math.abs(tile.x - passage.fromX) + Math.abs(tile.y - passage.fromY) < 5 ||
-      Math.abs(tile.x - passage.toX) + Math.abs(tile.y - passage.toY) < 5
-    )
-  );
+  const H = maze.length;
+  const W = maze[0].length;
 
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+  for (const k of keys) {
+    anchors.push({ x: k.x, y: k.y });
+  }
+  for (const g of gates) {
+    anchors.push({ x: g.x, y: g.y });
+  }
+  for (const t of torchPickups) {
+    anchors.push({ x: t.x, y: t.y });
+  }
+  for (const p of secretPassages) {
+    anchors.push({ x: p.fromX, y: p.fromY });
+    anchors.push({ x: p.toX, y: p.toY });
   }
 
-  for (const tile of candidates) {
-    if (threadSpools.length >= THREAD_SPOOL_COUNT) break;
-    if (threadSpools.every(spool => tileDist(tile, spool) >= 5)) {
-      threadSpools.push({ x: tile.x, y: tile.y });
+  const far = (x, y, list) => list.every(a => Math.abs(a.x - x) + Math.abs(a.y - y) >= 5);
+
+  function tryPlace(count, minR, maxR, maxAttempts) {
+    let attempts = 0;
+    while (count > 0 && threadSpools.length < THREAD_SPOOL_COUNT && attempts < maxAttempts) {
+      attempts++;
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      const x = playerX + dx;
+      const y = playerY + dy;
+      if (x < 0 || x >= W || y < 0 || y >= H || maze[y][x] !== 1) continue;
+      if (!far(x, y, anchors) || !far(x, y, threadSpools)) continue;
+      threadSpools.push({ x, y });
+      count--;
     }
   }
+
+  tryPlace(6, 8, 40, 5000);
+  tryPlace(THREAD_SPOOL_COUNT, 8, 150, 20000);
+  tryPlace(THREAD_SPOOL_COUNT, 5, W + H, 50000);
+
+  if (threadSpools.length < 12) {
+    console.warn('threadSpools under minimum');
+  }
 }
+
+function collectSpoolAt(x, y) {
+  const i = threadSpools.findIndex(s => s.x === x && s.y === y);
+  if (i === -1) return false;
+  threadSpools.splice(i, 1);
+  playerSpools++;
+  return true;
+}
+
+function onPlayerThreadStep() {
+  collectSpoolAt(playerX, playerY);
+  if (compassStepsRemaining > 0) compassStepsRemaining--;
+  updateSpoolUI();
+}
+
+window.getThreadState = () => ({
+  playerSpools,
+  compassStepsRemaining,
+  threadSpools: threadSpools.map(s => ({ x: s.x, y: s.y })),
+  playerX,
+  playerY,
+  escapeX,
+  escapeY,
+  gameWon,
+  gameLost,
+  visited: visitedTiles.size
+});
 
 // Escape tile position and win state globals
 let escapeX = -1;
@@ -450,23 +512,17 @@ function drawMaze() {
                     continue;
                 }
 
-                // Draw torch pickups as orange/yellow flame icons
-                if (torchPickups && torchPickups.length > 0) {
-                    for (let i = 0; i < torchPickups.length; i++) {
-                        if (torchPickups[i].x === mazeX && torchPickups[i].y === mazeY) {
-                            mazeGraphics.beginFill(0xffa500, 1);
-                            mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
-                            mazeGraphics.endFill();
-                            // Add flame detail
-                            mazeGraphics.beginFill(0xffd700, 1);
-                            mazeGraphics.moveTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 6);
-                            mazeGraphics.lineTo(x * tileSize + tileSize * 2 / 3, y * tileSize + tileSize / 3);
-                            mazeGraphics.lineTo(x * tileSize + tileSize / 3, y * tileSize + tileSize / 3);
-                            mazeGraphics.lineTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 4);
-                            mazeGraphics.closePath();
-                            mazeGraphics.endFill();
-                            break;
-                        }
+                // Draw path tiles
+                if (maze[mazeY][mazeX] === 1) {
+                    mazeGraphics.beginFill(0x00bfff, 1);
+                    mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                    mazeGraphics.endFill();
+
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, and passages)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY)) {
+                        mazeGraphics.beginFill(0xffd700, 0.65);
+                        mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
+                        mazeGraphics.endFill();
                     }
                 }
 
@@ -523,35 +579,14 @@ function drawMaze() {
                     }
                 }
 
-                // Draw path tiles
-                if (maze[mazeY][mazeX] === 1) {
-                    mazeGraphics.beginFill(0x00bfff, 1);
-                    mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                // Draw thread spool pickups
+                if (threadSpools.some(s => s.x === mazeX && s.y === mazeY)) {
+                    mazeGraphics.beginFill(0x00e5ff, 1);
+                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
                     mazeGraphics.endFill();
-
-                    // Draw golden breadcrumb trail on visited tiles (excluding player and escape)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY)) {
-                        mazeGraphics.beginFill(0xffd700, 0.65);
-                        mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
-                        mazeGraphics.endFill();
-                    }
-
-                    // Draw thread spool pickups
-                    if (threadSpools && threadSpools.length > 0) {
-                        for (let s of threadSpools) {
-                            if (s.x === mazeX && s.y === mazeY) {
-                                // Outer cyan circle
-                                mazeGraphics.beginFill(0x00e5ff, 1);
-                                mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 3);
-                                mazeGraphics.endFill();
-                                // Inner white core
-                                mazeGraphics.beginFill(0xffffff, 1);
-                                mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
-                                mazeGraphics.endFill();
-                                break;
-                            }
-                        }
-                    }
+                    mazeGraphics.beginFill(0xffffff, 1);
+                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
+                    mazeGraphics.endFill();
                 }
 
                 // Draw secret passage 'from' tiles as swirling purple portals ON TOP of path tiles
@@ -605,46 +640,33 @@ function drawMaze() {
                         }
                     }
                 }
-
                 // Draw player last (on top of everything)
                 if (mazeX === playerX && mazeY === playerY) {
                     mazeGraphics.beginFill(0xff0000, 1);
                     mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2);
                     mazeGraphics.endFill();
-
-                    // Draw active escape compass pointer
-                    if (compassStepsRemaining > 0 && (escapeX !== playerX || escapeY !== playerY)) {
-                        const angle = Math.atan2(escapeY - playerY, escapeX - playerX);
-                        const cx = x * tileSize + tileSize / 2;
-                        const cy = y * tileSize + tileSize / 2;
-                        const pointerLen = tileSize * 1.4;
-                        const tipX = cx + Math.cos(angle) * pointerLen;
-                        const tipY = cy + Math.sin(angle) * pointerLen;
-
-                        // Draw directional line
-                        mazeGraphics.lineStyle(3, 0x00e5ff, 1);
-                        mazeGraphics.moveTo(cx, cy);
-                        mazeGraphics.lineTo(tipX, tipY);
-                        mazeGraphics.lineStyle(0);
-
-                        // Draw arrowhead triangle
-                        const arrowSize = tileSize / 4;
-                        const arrowAngle = angle + Math.PI;
-                        const arrowX1 = tipX + Math.cos(arrowAngle + Math.PI / 6) * arrowSize;
-                        const arrowY1 = tipY + Math.sin(arrowAngle + Math.PI / 6) * arrowSize;
-                        const arrowX2 = tipX + Math.cos(arrowAngle - Math.PI / 6) * arrowSize;
-                        const arrowY2 = tipY + Math.sin(arrowAngle - Math.PI / 6) * arrowSize;
-
-                        mazeGraphics.beginFill(0x00e5ff, 1);
-                        mazeGraphics.moveTo(tipX, tipY);
-                        mazeGraphics.lineTo(arrowX1, arrowY1);
-                        mazeGraphics.lineTo(arrowX2, arrowY2);
-                        mazeGraphics.closePath();
-                        mazeGraphics.endFill();
-                    }
                 }
             }
         }
+    }
+    if (compassStepsRemaining > 0 && !gameWon && (escapeX !== playerX || escapeY !== playerY)) {
+        const angle = Math.atan2(escapeY - playerY, escapeX - playerX);
+        const cx = (playerX - startX) * tileSize + tileSize / 2;
+        const cy = (playerY - startY) * tileSize + tileSize / 2;
+        const len = tileSize * 1.5;
+        const tx = cx + Math.cos(angle) * len;
+        const ty = cy + Math.sin(angle) * len;
+        const head = tileSize * 0.5;
+        mazeGraphics.lineStyle(3, 0x00e5ff, 1);
+        mazeGraphics.moveTo(cx, cy);
+        mazeGraphics.lineTo(tx, ty);
+        mazeGraphics.lineStyle(0);
+        mazeGraphics.beginFill(0xffd700, 1);
+        mazeGraphics.moveTo(tx, ty);
+        mazeGraphics.lineTo(tx - head * Math.cos(angle - Math.PI / 6), ty - head * Math.sin(angle - Math.PI / 6));
+        mazeGraphics.lineTo(tx - head * Math.cos(angle + Math.PI / 6), ty - head * Math.sin(angle + Math.PI / 6));
+        mazeGraphics.closePath();
+        mazeGraphics.endFill();
     }
     drawMinotaur();
     pixiApp.render();
@@ -749,8 +771,9 @@ function spawnMinotaur() {
         {dx: 1, dy: 0}    // right
     ];
 
-    while (queue.length > 0) {
-        const {x, y, steps} = queue.shift();
+    let qHead = 0;
+    while (qHead < queue.length) {
+        const {x, y, steps} = queue[qHead++];
 
         // If we found a tile at least 50 steps away, collect it as a valid spawn
         if (steps >= 50) {
@@ -764,7 +787,7 @@ function spawnMinotaur() {
 
             // Check bounds, wall, and not already visited
             if (nx >= 0 && nx < maze[0].length && ny >= 0 && ny < maze.length &&
-                maze[nx][ny] !== 1 && !bfsVisited.has(key)) {
+                maze[ny][nx] === 1 && !bfsVisited.has(key)) {
                 bfsVisited.add(key);
                 queue.push({x: nx, y: ny, steps: steps + 1});
             }
@@ -778,16 +801,12 @@ function spawnMinotaur() {
         const randomIndex = Math.floor(Math.random() * validSpawnTiles.length);
         spawnTile = validSpawnTiles[randomIndex];
     } else {
-        // Try to find any valid tile not on player or escape tile
-        for (let x = 0; x < maze[0].length && !spawnTile; x++) {
-            for (let y = 0; y < maze.length && !spawnTile; y++) {
-                const escapeKey = `${escapeTileX},${escapeTileY}`;
-                const playerKey = `${playerX},${playerY}`;
-                if (x !== playerX || y !== playerY) {
-                    if (!(x === escapeTileX && y === escapeTileY)) {
-                        if (maze[x][y] !== 1) {
-                            spawnTile = {x, y};
-                        }
+        // Try to find any valid tile at least Manhattan distance 30 from player and not on escape tile
+        for (let y = 0; y < maze.length && !spawnTile; y++) {
+            for (let x = 0; x < maze[0].length && !spawnTile; x++) {
+                if (maze[y][x] === 1 && !(x === playerX && y === playerY) && !(x === escapeX && y === escapeY)) {
+                    if (Math.abs(x - playerX) + Math.abs(y - playerY) >= 30) {
+                        spawnTile = {x, y};
                     }
                 }
             }
@@ -811,8 +830,9 @@ function spawnMinotaur() {
     const parentMap = new Map();
     parentMap.set(`${minotaurX},${minotaurY}`, null);
 
-    while (pathQueue.length > 0) {
-        const {x, y} = pathQueue.shift();
+    let pqHead = 0;
+    while (pqHead < pathQueue.length) {
+        const {x, y} = pathQueue[pqHead++];
 
         // If we reached the player, stop and reconstruct path
         if (x === playerX && y === playerY) {
@@ -834,7 +854,7 @@ function spawnMinotaur() {
             const key = `${nx},${ny}`;
 
             if (nx >= 0 && nx < maze[0].length && ny >= 0 && ny < maze.length &&
-                maze[nx][ny] !== 1 && !pathVisited.has(key)) {
+                maze[ny][nx] === 1 && !pathVisited.has(key)) {
                 pathVisited.add(key);
                 pathQueue.push({x: nx, y: ny});
                 parentMap.set(`${nx},${ny}`, {x, y});
@@ -990,21 +1010,13 @@ function initGame() {
     updateTorchIndicator();
 
     // Reset thread spools and compass state
+    threadSpools.length = 0;
+    window.threadSpools = threadSpools;
     playerSpools = 0;
     compassStepsRemaining = 0;
-    threadSpools.length = 0;
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
-
-    // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
-    visitedTiles.clear();
-    visitedTiles.add(`${playerX},${playerY}`);
-    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
-    playerKeys = 0;
-    document.getElementById('keyCounter').textContent = 'Keys: 0';
-    keys.length = 0;
-    gates.length = 0;
 
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
     function findShortestPath(sx, sy, ex, ey) {
@@ -1197,6 +1209,8 @@ function initGame() {
             case 'D':
                 newX++; // Move right
                 break;
+            default:
+                return;
         }
 
         // Only process movement if position actually changed
@@ -1220,6 +1234,7 @@ function initGame() {
 
                 playerX = newX; // Update player position
                 playerY = newY; // Update player position
+                onPlayerThreadStep();
 
                 // Check if the player is moving backwards
                 if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) {
@@ -1262,21 +1277,6 @@ function initGame() {
                     updateTorchIndicator();
                 }
 
-                // Check for spool pickup
-                const spoolIndex = threadSpools.findIndex(s => s.x === playerX && s.y === playerY);
-                if (spoolIndex !== -1) {
-                    threadSpools.splice(spoolIndex, 1);
-                    playerSpools++;
-                }
-
-                // Compass step countdown
-                if (compassStepsRemaining > 0) {
-                    compassStepsRemaining--;
-                }
-
-                // Update HUD
-                updateSpoolUI();
-
                 // Check if player reached escape tile
                 if (playerX === escapeX && playerY === escapeY) {
                     gameWon = true; // Set win state
@@ -1290,6 +1290,7 @@ function initGame() {
                     torchActive = false;
                     torchStepsRemaining = 0;
                     updateTorchIndicator();
+                    compassStepsRemaining = 0;
                     updateSpoolUI();
                     drawMaze(); // Redraw maze with overlay on top
                     return;
@@ -1301,6 +1302,9 @@ function initGame() {
                     // Teleport player to destination
                     playerX = passage.toX;
                     playerY = passage.toY;
+
+                    // Check if there's a spool at the destination
+                    if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -1327,14 +1331,6 @@ function initGame() {
                             overlay.style.display = 'flex';
                         }
                         return;
-                    }
-
-                    // Check if there's a spool at the destination
-                    const destSpoolIndex = threadSpools.findIndex(s => s.x === playerX && s.y === playerY);
-                    if (destSpoolIndex !== -1) {
-                        threadSpools.splice(destSpoolIndex, 1);
-                        playerSpools++;
-                        updateSpoolUI();
                     }
 
                     drawMaze();
@@ -1435,17 +1431,7 @@ function handleMobileMove(direction) {
         playerX = newX;
         playerY = newY;
 
-        // Check if player stepped on a thread spool
-        const spoolIdx = threadSpools.findIndex(s => s.x === playerX && s.y === playerY);
-        if (spoolIdx !== -1) {
-            threadSpools.splice(spoolIdx, 1);
-            playerSpools++;
-        }
-
-        // Decrement compass steps if active
-        if (compassStepsRemaining > 0) {
-            compassStepsRemaining--;
-        }
+        onPlayerThreadStep();
 
         // Track unique tiles visited
         const tileKey = `${playerX},${playerY}`;
@@ -1481,11 +1467,7 @@ function handleMobileMove(direction) {
             playerY = secretPassages[passageIdx].toY;
 
             // Check if there's a spool at the destination tile
-            const destSpoolIdx = threadSpools.findIndex(s => s.x === playerX && s.y === playerY);
-            if (destSpoolIdx !== -1) {
-                threadSpools.splice(destSpoolIdx, 1);
-                playerSpools++;
-            }
+            if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
 
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
@@ -1509,6 +1491,7 @@ function handleMobileMove(direction) {
             // Check if minotaur is at destination (lose condition)
             if (playerX === minotaurX && playerY === minotaurY) {
                 gameLost = true;
+                updateSpoolUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -1516,19 +1499,26 @@ function handleMobileMove(direction) {
                 }
             }
 
-            updateSpoolUI();
             drawMaze();
             return;
+        }
+        if (torchActive) {
+            torchStepsRemaining--;
+            if (torchStepsRemaining <= 0) {
+                torchActive = false;
+                torchStepsRemaining = 0;
+            }
+            updateTorchIndicator();
         }
 
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
+            compassStepsRemaining = 0;
             updateSpoolUI();
             const overlay = document.getElementById('winOverlay');
             overlay.textContent = 'You Escaped! Steps: ' + document.getElementById('stepCounter').textContent + ', Unique Tiles: ' + visitedTiles.size + ', Keys: ' + playerKeys;
             overlay.style.display = 'flex';
         }
-        updateSpoolUI();
         drawMaze();
     }
 }

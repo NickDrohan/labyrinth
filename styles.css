@@ -20,10 +20,6 @@
 #torchIndicator.hidden {
     display: none;
 }
-    align-items: center;
-    z-index: 1000;
-    display: none;
-}
 
 @viewport {
     width: device-width;
@@ -131,7 +127,7 @@ body {
 @viewport {
     width: device-width;
     zoom: 1.0;
-    user-zoo
+    user-zoom: fixed;
 }
 .lose-overlay {
     align-items: center;
