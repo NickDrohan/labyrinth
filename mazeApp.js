@@ -42,15 +42,24 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+
+    const repelBtn = document.getElementById('repelButton');
+    if (repelBtn) {
+        repelBtn.addEventListener('click', function() {
+            triggerAegisRepel(false);
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 
-// Helper to show and fade secret passage message
+// Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
 let secretPassageFadeTimeout = null;
-function showSecretPassageMessage() {
+function showBannerMessage(text, bg = 'rgba(80,0,120,0.85)') {
     const msgDiv = document.getElementById('secretPassageMessage');
     if (!msgDiv) return;
-    msgDiv.textContent = 'You found a secret passage!';
+    msgDiv.textContent = text;
+    msgDiv.style.background = bg;
     msgDiv.style.transition = '';
     msgDiv.style.opacity = '1';
     msgDiv.style.display = 'block';
@@ -72,6 +81,9 @@ function showSecretPassageMessage() {
         msgDiv.style.display = 'none';
         msgDiv.style.transition = '';
     }, 1900);
+}
+function showSecretPassageMessage() {
+    showBannerMessage('You found a secret passage!', 'rgba(80,0,120,0.85)');
 }
 // Debug utility to reveal all secret passage locations
 window.revealSecretPassages = function() {
@@ -157,6 +169,15 @@ let playerSpools = 0;
 let compassStepsRemaining = 0;
 const COMPASS_EFFECT_STEPS = 25;
 const THREAD_SPOOL_COUNT = 18;
+let aegisShrines = [];
+window.aegisShrines = aegisShrines;
+let playerShields = 0;
+const MAX_SHIELDS = 3;
+const AEGIS_SHRINE_COUNT = 16;
+let minotaurStunnedUntil = 0;
+const MINOTAUR_STUN_MS = 8000;
+const MINOTAUR_REPEL_STEPS = 15;
+let repelFlashUntil = 0;
 
 function isTorchTile(x, y) {
   return torchPickups.some(t => t.x === x && t.y === y);
@@ -237,6 +258,9 @@ function getForbiddenTiles() {
       forbidden.add(`${p.toX},${p.toY}`);
     }
   }
+  if (Array.isArray(aegisShrines)) {
+    for (const a of aegisShrines) forbidden.add(`${a.x},${a.y}`);
+  }
   return forbidden;
 }
 
@@ -316,44 +340,37 @@ function getProximityLabel() {
   return 'Cold';
 }
 
-function updateSpoolUI() {
-  const spoolCounter = document.getElementById('spoolCounter');
-  if (spoolCounter) spoolCounter.textContent = `Spools: ${playerSpools}`;
+function getMinotaurStatusLabel() {
+  if (!minotaurActive || minotaurX < 0 || minotaurY < 0) return 'Inactive';
+  if (Date.now() < minotaurStunnedUntil) {
+    const secs = Math.max(1, Math.ceil((minotaurStunnedUntil - Date.now()) / 1000));
+    return 'Stunned (' + secs + 's)';
+  }
+  const d = Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY);
+  return d <= 15 ? 'DANGER' : (d <= 45 ? 'Near' : 'Distant');
+}
 
-  const compassIndicator = document.getElementById('compassIndicator');
-  if (compassIndicator) {
-    if (compassStepsRemaining > 0) {
-      compassIndicator.textContent = `Compass: ${compassStepsRemaining} (${getProximityLabel()})`;
-      compassIndicator.classList.add('active');
-    } else {
-      compassIndicator.textContent = 'Compass: Off';
-      compassIndicator.classList.remove('active');
-    }
+function updateShieldUI() {
+  const shieldCounter = document.getElementById('shieldCounter');
+  if (shieldCounter) shieldCounter.textContent = `Shields: ${playerShields}`;
+
+  const minotaurRadar = document.getElementById('minotaurRadar');
+  if (minotaurRadar) {
+    const status = getMinotaurStatusLabel();
+    minotaurRadar.textContent = 'Minotaur: ' + status;
+    minotaurRadar.classList.toggle('danger', status === 'DANGER');
+    minotaurRadar.classList.toggle('stunned', status.startsWith('Stunned'));
   }
 
-  const btn = document.getElementById('useSpoolButton');
-  if (btn) {
-    btn.disabled = playerSpools <= 0 || compassStepsRemaining > 0 || gameWon || gameLost;
+  const repelButton = document.getElementById('repelButton');
+  if (repelButton) {
+    repelButton.disabled = playerShields <= 0 || gameWon || gameLost || !minotaurActive;
   }
 }
 
-function activateThreadCompass() {
-  if (gameWon || gameLost || playerSpools <= 0 || compassStepsRemaining > 0) return false;
-
-  playerSpools--;
-  compassStepsRemaining = COMPASS_EFFECT_STEPS;
-  updateSpoolUI();
-  drawMaze();
-  return true;
-}
-window.activateThreadCompass = activateThreadCompass;
-
-function placeThreadSpools() {
-  threadSpools.length = 0;
-  window.threadSpools = threadSpools;
-
-  const H = maze.length;
-  const W = maze[0].length;
+function placeAegisShrines() {
+  aegisShrines.length = 0;
+  window.aegisShrines = aegisShrines;
 
   const anchors = [
     { x: playerX, y: playerY },
@@ -372,9 +389,182 @@ function placeThreadSpools() {
     anchors.push({ x: p.fromX, y: p.fromY });
     anchors.push({ x: p.toX, y: p.toY });
   }
+  for (const s of threadSpools) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  const H = maze.length, W = maze[0].length;
 
   const far = (x, y, list) => list.every(a => Math.abs(a.x - x) + Math.abs(a.y - y) >= 5);
 
+  function tryPlaceShrines(count, minR, maxR, maxAttempts) {
+    let attempts = 0;
+    while (count > 0 && aegisShrines.length < AEGIS_SHRINE_COUNT && attempts < maxAttempts) {
+      attempts++;
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      const x = playerX + dx;
+      const y = playerY + dy;
+      if (x < 0 || x >= maze[0].length || y < 0 || y >= maze.length || maze[y][x] !== 1) continue;
+      if (!far(x, y, anchors)) continue;
+      if (!far(x, y, aegisShrines)) continue;
+      aegisShrines.push({ x, y });
+      count--;
+    }
+  }
+
+  tryPlaceShrines(5, 6, 35, 6000);
+  // Ensure at least 3 shrines within Manhattan distance <= 35 of (playerX, playerY)
+  if (aegisShrines.length < 3) {
+    for (let d = 6; d <= 35 && aegisShrines.length < 3; d++) {
+      for (let dx = -d; dx <= d && aegisShrines.length < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        for (const sy of [playerY + dy, playerY - dy]) {
+          const sx = playerX + dx;
+          if (sx >= 0 && sx < maze[0].length && sy >= 0 && sy < maze.length && maze[sy][sx] === 1) {
+            if (far(sx, sy, anchors) && far(sx, sy, aegisShrines)) {
+              aegisShrines.push({ x: sx, y: sy });
+            }
+          }
+        }
+      }
+    }
+  }
+  tryPlaceShrines(AEGIS_SHRINE_COUNT, 8, 160, 25000);
+  tryPlaceShrines(AEGIS_SHRINE_COUNT, 5, maze[0].length + maze.length, 50000);
+}
+
+function collectShieldAt(x, y) {
+  if (playerShields >= MAX_SHIELDS) return false;
+  const i = aegisShrines.findIndex(a => a.x === x && a.y === y);
+  if (i === -1) return false;
+  aegisShrines.splice(i, 1);
+  playerShields++;
+  showBannerMessage('Aegis Shield acquired! (' + playerShields + '/' + MAX_SHIELDS + ')', 'rgba(0,110,60,0.9)');
+  updateShieldUI();
+  return true;
+}
+
+function pushMinotaurBack(steps) {
+  if (Array.isArray(minotaurPath) && minotaurPath.length > 0) {
+    minotaurPath.splice(0, Math.min(steps, minotaurPath.length));
+  }
+
+  const visited = new Set();
+  for (let i = 0; i < steps; i++) {
+    let best = { x: minotaurX, y: minotaurY };
+    let bestDist = -1;
+
+    const candidates = [
+      { x: minotaurX + 1, y: minotaurY },
+      { x: minotaurX - 1, y: minotaurY },
+      { x: minotaurX, y: minotaurY + 1 },
+      { x: minotaurX, y: minotaurY - 1 }
+    ];
+
+    for (const nx of candidates) {
+      if (nx.x < 0 || nx.x >= maze[0].length || nx.y < 0 || nx.y >= maze.length) continue;
+      if (maze[nx.y][nx.x] !== 1) continue;
+      if (nx.x === playerX && nx.y === playerY) continue;
+
+      const key = nx.x + ',' + nx.y;
+      if (visited.has(key)) continue;
+
+      const dist = Math.abs(nx.x - playerX) + Math.abs(nx.y - playerY);
+      if (dist > bestDist) {
+        best = nx;
+        bestDist = dist;
+      }
+    }
+
+    if (bestDist === -1) break;
+
+    minotaurX = best.x;
+    minotaurY = best.y;
+    visited.add(minotaurX + ',' + minotaurY);
+    minotaurPath.unshift({ x: minotaurX, y: minotaurY });
+  }
+
+  if (minotaurX === playerX && minotaurY === playerY) {
+    const adjacent = [
+      { x: minotaurX + 1, y: minotaurY },
+      { x: minotaurX - 1, y: minotaurY },
+      { x: minotaurX, y: minotaurY + 1 },
+      { x: minotaurX, y: minotaurY - 1 }
+    ];
+    for (const a of adjacent) {
+      if (a.x < 0 || a.x >= maze[0].length || a.y < 0 || a.y >= maze.length) continue;
+      if (maze[a.y][a.x] !== 1) continue;
+      if (a.x === playerX && a.y === playerY) continue;
+      minotaurX = a.x;
+      minotaurY = a.y;
+      break;
+    }
+  }
+}
+
+function triggerAegisRepel(isAutoIntercept = false) {
+  if (gameWon || gameLost || playerShields <= 0) return false;
+
+  playerShields--;
+  minotaurStunnedUntil = Date.now() + MINOTAUR_STUN_MS;
+  repelFlashUntil = Date.now() + 600;
+
+  if (minotaurActive && minotaurX >= 0) {
+    pushMinotaurBack(MINOTAUR_REPEL_STEPS);
+  }
+
+  const msg = isAutoIntercept ? 'Aegis Shield shattered! Minotaur repelled!' : 'Aegis Pulse! Minotaur repelled & stunned!';
+  showBannerMessage(msg, 'rgba(0,120,70,0.9)');
+
+  updateShieldUI();
+  updateSpoolUI();
+  drawMaze();
+  return true;
+}
+
+window.triggerAegisRepel = triggerAegisRepel;
+function updateSpoolUI() {
+  const c = document.getElementById('spoolCounter');
+  if (c) c.textContent = 'Spools: ' + playerSpools;
+  const ind = document.getElementById('compassIndicator');
+  if (ind) {
+    const on = compassStepsRemaining > 0;
+    ind.textContent = on ? 'Compass: ' + compassStepsRemaining + ' (' + getProximityLabel() + ')' : 'Compass: Off';
+    ind.classList.toggle('active', on);
+  }
+  const b = document.getElementById('useSpoolButton');
+  if (b) b.disabled = (playerSpools <= 0 || compassStepsRemaining > 0 || gameWon || gameLost);
+}
+
+function activateThreadCompass() {
+  if (gameWon || gameLost || playerSpools <= 0 || compassStepsRemaining > 0) return false;
+  playerSpools--;
+  compassStepsRemaining = COMPASS_EFFECT_STEPS;
+  updateSpoolUI();
+  drawMaze();
+  return true;
+}
+window.activateThreadCompass = activateThreadCompass;
+
+function placeThreadSpools() {
+  threadSpools.length = 0;
+  window.threadSpools = threadSpools;
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+  for (const k of keys) anchors.push({ x: k.x, y: k.y });
+  for (const g of gates) anchors.push({ x: g.x, y: g.y });
+  for (const t of torchPickups) anchors.push({ x: t.x, y: t.y });
+  for (const p of secretPassages) {
+    anchors.push({ x: p.fromX, y: p.fromY });
+    anchors.push({ x: p.toX, y: p.toY });
+  }
+  const H = maze.length, W = maze[0].length;
+  const far = (x, y, list) => list.every(a => Math.abs(a.x - x) + Math.abs(a.y - y) >= 5);
   function tryPlace(count, minR, maxR, maxAttempts) {
     let attempts = 0;
     while (count > 0 && threadSpools.length < THREAD_SPOOL_COUNT && attempts < maxAttempts) {
@@ -391,14 +581,36 @@ function placeThreadSpools() {
       count--;
     }
   }
-
   tryPlace(6, 8, 40, 5000);
+  // Ensure at least 3 spools within Manhattan distance <= 40 of player start
+  const minNear = 3;
+  const nearCount = threadSpools.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 40).length;
+  if (nearCount < minNear) {
+    const H = maze.length, W = maze[0].length;
+    const far = (x, y, list) => list.every(a => Math.abs(a.x - x) + Math.abs(a.y - y) >= 5);
+    const candidates = [];
+    for (let d = 5; d <= 40 && candidates.length < 3; d++) {
+      for (let dx = -d; dx <= d && candidates.length < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        for (const sd of [dy, -dy]) {
+          const x = playerX + dx;
+          const y = playerY + sd;
+          if (x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, threadSpools) && far(x, y, candidates)) {
+            candidates.push({ x, y });
+          }
+        }
+      }
+    }
+    for (const c of candidates) {
+      if (far(c.x, c.y, threadSpools)) {
+        threadSpools.push(c);
+      }
+      if (threadSpools.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 40).length >= minNear) break;
+    }
+  }
   tryPlace(THREAD_SPOOL_COUNT, 8, 150, 20000);
   tryPlace(THREAD_SPOOL_COUNT, 5, W + H, 50000);
-
-  if (threadSpools.length < 12) {
-    console.warn('threadSpools under minimum');
-  }
+  if (threadSpools.length < 12) console.warn('threadSpools under minimum');
 }
 
 function collectSpoolAt(x, y) {
@@ -411,8 +623,10 @@ function collectSpoolAt(x, y) {
 
 function onPlayerThreadStep() {
   collectSpoolAt(playerX, playerY);
+  collectShieldAt(playerX, playerY);
   if (compassStepsRemaining > 0) compassStepsRemaining--;
   updateSpoolUI();
+  updateShieldUI();
 }
 
 window.getThreadState = () => ({
@@ -425,13 +639,21 @@ window.getThreadState = () => ({
   escapeY,
   gameWon,
   gameLost,
-  visited: visitedTiles.size
+  visited: visitedTiles.size,
+  playerShields,
+  aegisShrines: aegisShrines.map(a => ({ x: a.x, y: a.y })),
+  minotaurX,
+  minotaurY,
+  minotaurActive,
+  minotaurStunned: Date.now() < minotaurStunnedUntil,
+  minotaurStatus: getMinotaurStatusLabel()
 });
 
-// Escape tile position and win state globals
+window.getGameState = window.getThreadState;
 let escapeX = -1;
 let escapeY = -1;
 let gameWon = false;
+
 
 // Generate the maze
 let cameraMode = "center";
@@ -518,8 +740,8 @@ function drawMaze() {
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                     mazeGraphics.endFill();
 
-                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, and passages)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY)) {
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, and aegis shrines)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY)) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -589,6 +811,16 @@ function drawMaze() {
                     mazeGraphics.endFill();
                 }
 
+                // Draw Aegis Shrine pickups
+                if (aegisShrines.some(a => a.x === mazeX && a.y === mazeY)) {
+                    mazeGraphics.beginFill(0x00ff88, 1);
+                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2.6);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0xccffee, 1);
+                    mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 5);
+                    mazeGraphics.endFill();
+                }
+
                 // Draw secret passage 'from' tiles as swirling purple portals ON TOP of path tiles
                 if (secretPassages && secretPassages.length > 0) {
                     for (let i = 0; i < secretPassages.length; i++) {
@@ -605,46 +837,40 @@ function drawMaze() {
                             mazeGraphics.beginFill(0x8000ff, 0.7);
                             for (let a = 0; a < 12; a++) {
                                 const angle = (a / 12) * Math.PI * 2 + (i * 0.3 + performance.now() / 500) % (Math.PI * 2);
-                                const r = radius * (0.7 + (a % 2 === 0 ? 0.15 : 0));
-                                const px = tileX + Math.cos(angle) * r;
-                                const py = tileY + Math.sin(angle) * r;
-                                if (a === 0) {
-                                    mazeGraphics.moveTo(px, py);
-                                } else {
-                                    mazeGraphics.lineTo(px, py);
-                                }
+                                const arcX = tileX + Math.cos(angle) * radius;
+                                const arcY = tileY + Math.sin(angle) * radius;
+                                const nextAngle = ((a + 1) / 12) * Math.PI * 2 + (i * 0.3 + performance.now() / 500) % (Math.PI * 2);
+                                const nextArcX = tileX + Math.cos(nextAngle) * radius;
+                                const nextArcY = tileY + Math.sin(nextAngle) * radius;
+                                mazeGraphics.moveTo(tileX, tileY);
+                                mazeGraphics.lineTo(arcX, arcY);
+                                mazeGraphics.lineTo(nextArcX, nextArcY);
+                                mazeGraphics.closePath();
                             }
-                            mazeGraphics.closePath();
-                            mazeGraphics.endFill();
-                            // Draw inner light-purple swirl core
-                            mazeGraphics.beginFill(0xd870ff, 0.85);
-                            mazeGraphics.drawCircle(tileX, tileY, Math.max(2, radius * 0.35));
                             mazeGraphics.endFill();
                         }
                     }
                 }
 
-                // Draw debug 'to' tile circles when enabled
-                if (debugMode) {
-                    if (secretPassages && secretPassages.length > 0) {
-                        for (let i = 0; i < secretPassages.length; i++) {
-                            const passage = secretPassages[i];
-                            const inToViewport = passage.toX >= startX && passage.toX < startX + visibleWidth && passage.toY >= startY && passage.toY < startY + visibleHeight;
-                            if (inToViewport && passage.toX === mazeX && passage.toY === mazeY) {
-                                const tx = (passage.toX - startX) * tileSize + tileSize / 2;
-                                const ty = (passage.toY - startY) * tileSize + tileSize / 2;
-                                mazeGraphics.beginFill(0x8000ff, 0.15);
-                                mazeGraphics.drawCircle(tx, ty, tileSize / 4);
-                                mazeGraphics.endFill();
-                            }
-                        }
-                    }
-                }
-                // Draw player last (on top of everything)
+                // Draw player
                 if (mazeX === playerX && mazeY === playerY) {
                     mazeGraphics.beginFill(0xff0000, 1);
                     mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2);
                     mazeGraphics.endFill();
+
+                    // Draw emerald aura ring when player has shields
+                    if (playerShields > 0) {
+                        mazeGraphics.lineStyle(2, 0x00ff88, 0.9);
+                        mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize * 0.65);
+                        mazeGraphics.lineStyle(0);
+
+                        // Draw pulse ring when repel flash is active
+                        if (Date.now() < repelFlashUntil) {
+                            mazeGraphics.lineStyle(2, 0x00ff88, 0.6);
+                            mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize * 1.4);
+                            mazeGraphics.lineStyle(0);
+                        }
+                    }
                 }
             }
         }
@@ -817,9 +1043,11 @@ function spawnMinotaur() {
     if (spawnTile) {
         minotaurX = spawnTile.x;
         minotaurY = spawnTile.y;
+        minotaurActive = true;
     } else {
         minotaurX = -1;
         minotaurY = -1;
+        minotaurActive = false;
     }
 
     // Rebuild path from Minotaur to player using BFS with parent tracking
@@ -925,6 +1153,13 @@ function drawMinotaur() {
     mazeGraphics.lineTo(centerX, centerY + size);
     mazeGraphics.lineTo(centerX - size, centerY);
     mazeGraphics.endFill();
+
+    // Draw stun ring if stunned
+    if (Date.now() < minotaurStunnedUntil) {
+        mazeGraphics.lineStyle(2, 0x00ff88, 0.95);
+        mazeGraphics.drawCircle(centerX, centerY, size + 4);
+        mazeGraphics.lineStyle(0);
+    }
 }
 
 
@@ -1014,6 +1249,13 @@ function initGame() {
     window.threadSpools = threadSpools;
     playerSpools = 0;
     compassStepsRemaining = 0;
+
+    // Reset Aegis Shield state
+    aegisShrines.length = 0;
+    window.aegisShrines = aegisShrines;
+    playerShields = 0;
+    minotaurStunnedUntil = 0;
+    repelFlashUntil = 0;
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -1139,7 +1381,11 @@ function initGame() {
     minotaurInterval = null;
 
     minotaurPath = spawnMinotaur();
+    placeAegisShrines();
+    updateShieldUI();
     let stepCount = 0; // Initialize step count
+    const stepCounterEl = document.getElementById('stepCounter');
+    if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
     drawMaze();
 
     setupMobileControls(); // Initialize mobile controls
@@ -1148,6 +1394,11 @@ function initGame() {
     minotaurInterval = setInterval(() => {
         if (gameWon || gameLost) {
             return; // Skip minotaur movement if game is won or lost
+        }
+        if (Date.now() < minotaurStunnedUntil) {
+            updateShieldUI();
+            drawMaze();
+            return;
         }
         if (minotaurPath.length > 0) {
             const nextPosition = minotaurPath.shift(); // Use shift to move towards the user
@@ -1159,8 +1410,13 @@ function initGame() {
 
                 // Check for collision with the user
                 if (minotaurX === playerX && minotaurY === playerY) {
+                    if (playerShields > 0) {
+                        triggerAegisRepel(true);
+                        return;
+                    }
                     gameLost = true;
                     updateSpoolUI();
+                    updateShieldUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -1168,23 +1424,30 @@ function initGame() {
                     return;
                 }
 
+                updateShieldUI();
                 drawMaze();
             }
         }
     }, 250); // Move 4 times per second (1000ms / 4 = 250ms)
 
-    // Handle user movement
+    const keydownGen = (window._keydownGen = (window._keydownGen || 0) + 1);
     document.addEventListener('keydown', (event) => {
+        if (keydownGen !== window._keydownGen) return;
         if (gameWon || gameLost) {
             return; // Ignore player input if game is won or lost
         }
-        
+
         // Handle compass activation without movement
         if (event.key === 't' || event.key === 'T') {
             activateThreadCompass();
             return;
         }
-        
+
+        // Handle Aegis repel
+        if (event.key === 'r' || event.key === 'R') {
+            triggerAegisRepel(false);
+            return;
+        }
         let newX = playerX;
         let newY = playerY;
 
@@ -1292,6 +1555,7 @@ function initGame() {
                     updateTorchIndicator();
                     compassStepsRemaining = 0;
                     updateSpoolUI();
+                    updateShieldUI();
                     drawMaze(); // Redraw maze with overlay on top
                     return;
                 }
@@ -1305,6 +1569,8 @@ function initGame() {
 
                     // Check if there's a spool at the destination
                     if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+                    collectShieldAt(playerX, playerY);
+                    updateShieldUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -1324,8 +1590,13 @@ function initGame() {
 
                     // Check if the minotaur is at the destination
                     if (minotaurX === playerX && minotaurY === playerY) {
+                        if (playerShields > 0) {
+                            triggerAegisRepel(true);
+                            return;
+                        }
                         gameLost = true;
                         updateSpoolUI();
+                        updateShieldUI();
                         const overlay = document.getElementById('loseOverlay');
                         if (overlay) {
                             overlay.style.display = 'flex';
@@ -1336,6 +1607,20 @@ function initGame() {
                     drawMaze();
                 }
                 else {
+                    // Check if player stepped directly onto the Minotaur
+                    if (minotaurX === playerX && minotaurY === playerY) {
+                        if (playerShields > 0) {
+                            triggerAegisRepel(true);
+                            return;
+                        }
+                        gameLost = true;
+                        updateSpoolUI();
+                        updateShieldUI();
+                        const overlay = document.getElementById('loseOverlay');
+                        if (overlay) overlay.style.display = 'flex';
+                        drawMaze();
+                        return;
+                    }
                     drawMaze();
                 }
             }
@@ -1469,6 +1754,10 @@ function handleMobileMove(direction) {
             // Check if there's a spool at the destination tile
             if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
 
+            // Collect shield at secret passage destination
+            collectShieldAt(playerX, playerY);
+            updateShieldUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -1490,8 +1779,13 @@ function handleMobileMove(direction) {
 
             // Check if minotaur is at destination (lose condition)
             if (playerX === minotaurX && playerY === minotaurY) {
+                if (playerShields > 0) {
+                    triggerAegisRepel(true);
+                    return;
+                }
                 gameLost = true;
                 updateSpoolUI();
+                updateShieldUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -1511,10 +1805,27 @@ function handleMobileMove(direction) {
             updateTorchIndicator();
         }
 
+        // Check for Minotaur collision (non-teleport step)
+        if (playerX === minotaurX && playerY === minotaurY) {
+            if (playerShields > 0) {
+                triggerAegisRepel(true);
+                return;
+            } else {
+                gameLost = true;
+                updateSpoolUI();
+                updateShieldUI();
+                const overlay = document.getElementById('loseOverlay');
+                if (overlay) overlay.style.display = 'flex';
+                drawMaze();
+                return;
+            }
+        }
+
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
             compassStepsRemaining = 0;
             updateSpoolUI();
+            updateShieldUI();
             const overlay = document.getElementById('winOverlay');
             overlay.textContent = 'You Escaped! Steps: ' + document.getElementById('stepCounter').textContent + ', Unique Tiles: ' + visitedTiles.size + ', Keys: ' + playerKeys;
             overlay.style.display = 'flex';
@@ -1526,8 +1837,75 @@ function handleMobileMove(direction) {
 
 // Add this to your initialization code
 initMobileControls();
-
 // Restart button on the defeat overlay reloads the game
 document.getElementById('resetButton').addEventListener('click', () => {
-    window.location.reload();
+    initGame();
 });
+window.runThreadSmokeSpec = function() {
+    const st0 = window.getThreadState();
+    const p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
+        st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
+    const nearStart = st0.threadSpools.filter(s => Math.abs(s.x - st0.playerX) + Math.abs(s.y - st0.playerY) <= 40).length >= 3;
+    const p2 = nearStart && st0.threadSpools.every((s, i) => {
+        const dist = (x, y) => Math.abs(x - s.x) + Math.abs(y - s.y);
+        return dist(st0.playerX, st0.playerY) >= 5 &&
+            dist(st0.escapeX, st0.escapeY) >= 5 &&
+            keys.every(k => dist(k.x, k.y) >= 5) &&
+            gates.every(g => dist(g.x, g.y) >= 5) &&
+            torchPickups.every(t => dist(t.x, t.y) >= 5) &&
+            secretPassages.every(p => dist(p.fromX, p.fromY) >= 5 && dist(p.toX, p.toY) >= 5) &&
+            st0.threadSpools.every((o, j) => j === i || dist(o.x, o.y) >= 5);
+    });
+    const checkNoOpTKeys = () => {
+        const pre = window.getThreadState();
+        const prePathLen = minotaurPath.length;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
+        const post = window.getThreadState();
+        return window.activateThreadCompass() === false &&
+            post.playerX === pre.playerX &&
+            post.playerY === pre.playerY &&
+            minotaurPath.length === prePathLen &&
+            post.playerSpools === pre.playerSpools &&
+            post.compassStepsRemaining === pre.compassStepsRemaining;
+    };
+    const p9Idle = st0.playerSpools === 0 && checkNoOpTKeys();
+    const dirs = [
+        { dx: 0, dy: -1, key: 'ArrowUp', mobile: 'up', opp: 'down' },
+        { dx: 0, dy: 1, key: 'ArrowDown', mobile: 'down', opp: 'up' },
+        { dx: -1, dy: 0, key: 'ArrowLeft', mobile: 'left', opp: 'right' },
+        { dx: 1, dy: 0, key: 'ArrowRight', mobile: 'right', opp: 'left' }
+    ];
+    const cur = window.getThreadState();
+    const validDir = dirs.find(d => {
+        const nx = cur.playerX + d.dx, ny = cur.playerY + d.dy;
+        return ny >= 0 && ny < maze.length && nx >= 0 && nx < maze[0].length && maze[ny][nx] === 1 &&
+            !gates.some(g => g.x === nx && g.y === ny) &&
+            !secretPassages.some(p => p.fromX === nx && p.fromY === ny);
+    });
+    let p4 = false, p5 = false, p6 = false, p9Active = false;
+    if (validDir) {
+        const tx = cur.playerX + validDir.dx, ty = cur.playerY + validDir.dy;
+        if (!threadSpools.some(s => s.x === tx && s.y === ty)) {
+            threadSpools.push({ x: tx, y: ty });
+        }
+        const beforePickup = window.getThreadState();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
+        const afterPickup = window.getThreadState();
+        const counterEl = document.getElementById('spoolCounter');
+        p4 = afterPickup.playerSpools === beforePickup.playerSpools + 1 && (!!counterEl && counterEl.textContent === 'Spools: ' + afterPickup.playerSpools);
+        const activated = window.activateThreadCompass();
+        const afterAct = window.getThreadState();
+        const indEl = document.getElementById('compassIndicator');
+        p5 = activated === true && afterAct.playerSpools === afterPickup.playerSpools - 1 && afterAct.compassStepsRemaining === 25 &&
+            !!indEl && /^Compass: 25 \((Cold|Warm|Hot)\)$/.test(indEl.textContent) && indEl.classList.contains('active');
+        const p9Active = afterAct.compassStepsRemaining === 25 && checkNoOpTKeys();
+        handleMobileMove(validDir.opp);
+        const afterMobile = window.getThreadState();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
+        const afterKey = window.getThreadState();
+        p6 = afterMobile.compassStepsRemaining === 24 && afterKey.compassStepsRemaining === 23;
+    }
+    const p12 = Array.isArray(minotaurPath) && minotaurPath.every(n => n.y >= 0 && n.y < maze.length && n.x >= 0 && n.x < maze[0].length && maze[n.y][n.x] === 1);
+    return { P1: p1, P2: p2, P4: p4, P5: p5, P6: p6, P9: p9Idle && p9Active, P12: p12 };
+};
