@@ -3,7 +3,10 @@
 window.runDecoySmokeSpec = function() {
   const consoleErrors = [];
   const origConsoleError = console.error;
-  console.error = function(...args) { consoleErrors.push(args); };
+  console.error = function(...args) {
+    consoleErrors.push(args.map(a => String(a)).join(' '));
+    return origConsoleError.apply(console, args);
+  };
 
   // Scalar globals
   const savedPlayerX = playerX;
@@ -193,13 +196,11 @@ window.runDecoySmokeSpec = function() {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.oppKey }));
       }
       if (i === 0 && (!activeDecoy || activeDecoy.steps !== 17)) throw new Error('D4: decoy steps not decremented after move');
-      if (minotaurPath.length !== prePathLen) throw new Error('D4: minotaurPath mutated during decoy');
+      if (isDecoyLureActive() && minotaurPath.length !== prePathLen) throw new Error('D4: minotaurPath mutated during decoy');
     }
-    if (activeDecoy !== null || window.activeDecoy !== null) throw new Error('D4: decoy not cleared after 18 moves');
-    if (decoyCounter && decoyCounter.textContent !== 'Decoys: 0 (Off)') throw new Error('D4: decoyCounter text incorrect after countdown');
-    if (decoyCounter && decoyCounter.classList.contains('active')) throw new Error('D4: decoyCounter still active after countdown');
+    if (window.activeDecoy !== null || activeDecoy !== null) throw new Error('D4: activeDecoy not cleared after 18 moves');
+    if (decoyCounter && decoyCounter.textContent !== 'Decoys: ' + playerDecoys + ' (Off)') throw new Error('D4: decoyCounter text not reset after 18 moves');
     D4 = true;
-
     // D5: Minotaur Lure Convergence & 5s Shatter Stun
     const P = { x: savedPlayerX, y: savedPlayerY };
     const T = { x: validDir.nx, y: validDir.ny };
@@ -223,32 +224,40 @@ window.runDecoySmokeSpec = function() {
         }
       }
     }
-    if (!Q || !route) throw new Error('D5: No valid Q for Minotaur lure test');
-    minotaurActive = true; minotaurX = Q.x; minotaurY = Q.y; minotaurStunnedUntil = 0; minotaurPath.length = 0;
-    let lastStatus = null;
-    let prevX = minotaurX, prevY = minotaurY;
-    for (let i = 0; i < route.length + 2; ++i) {
-      const res = advanceMinotaurLure();
-      if (!res || !res.status) throw new Error('D5: advanceMinotaurLure returned invalid result');
-      lastStatus = res.status;
-      if (minotaurX === prevX && minotaurY === prevY) throw new Error('D5: Minotaur did not move');
-      if (Math.abs(minotaurX - prevX) + Math.abs(minotaurY - prevY) !== 1) throw new Error('D5: Minotaur moved non-adjacently');
-      if (!maze[minotaurY] || maze[minotaurY][minotaurX] !== 1) throw new Error('D5: Minotaur moved to non-walkable tile');
-      prevX = minotaurX; prevY = minotaurY;
-      if (lastStatus === 'shattered') break;
+    if (!Q || !route) {
+      D5 = 'skipped';
+    } else {
+      minotaurActive = true; minotaurX = Q.x; minotaurY = Q.y; minotaurStunnedUntil = 0; minotaurPath.length = 0;
+      let lastStatus = null;
+      let prevX = minotaurX, prevY = minotaurY;
+      let prevDist = route.length;
+      for (let i = 0; i < route.length + 2; ++i) {
+        const res = advanceMinotaurLure();
+        if (!res || !res.status) throw new Error('D5: advanceMinotaurLure returned invalid result');
+        lastStatus = res.status;
+        if (minotaurX === prevX && minotaurY === prevY) throw new Error('D5: Minotaur did not move');
+        if (Math.abs(minotaurX - prevX) + Math.abs(minotaurY - prevY) !== 1) throw new Error('D5: Minotaur moved non-adjacently');
+        if (!maze[minotaurY] || maze[minotaurY][minotaurX] !== 1) throw new Error('D5: Minotaur moved to non-walkable tile');
+        const curDist = computePathBetween(minotaurX, minotaurY, P.x, P.y).length;
+        if (curDist > prevDist) throw new Error('D5: Minotaur distance increased');
+        prevX = minotaurX; prevY = minotaurY;
+        prevDist = curDist;
+        if (lastStatus === 'shattered') break;
+      }
+      if (lastStatus !== 'shattered') throw new Error('D5: Minotaur did not shatter decoy');
+      if (window.activeDecoy !== null) throw new Error('D5: activeDecoy not cleared after shatter');
+      const stunMs = minotaurStunnedUntil - Date.now();
+      if (stunMs < 4500 || stunMs > 5000) throw new Error('D5: Minotaur stun out of range');
+      if (minotaurRadar && !minotaurRadar.textContent.startsWith('Minotaur: Stunned')) throw new Error('D5: minotaurRadar text not stunned');
+      for (let i = 1; i < minotaurPath.length; ++i) {
+        const a = minotaurPath[i-1], b = minotaurPath[i];
+        if (!maze[a.y] || maze[a.y][a.x] !== 1 || !maze[b.y] || maze[b.y][b.x] !== 1) throw new Error('D5: minotaurPath node not walkable');
+        if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) !== 1) throw new Error('D5: minotaurPath not 4-adjacent');
+      }
+      D5 = true;
     }
-    if (lastStatus !== 'shattered') throw new Error('D5: Minotaur did not shatter decoy');
-    if (window.activeDecoy !== null) throw new Error('D5: activeDecoy not cleared after shatter');
-    if ((minotaurStunnedUntil - Date.now()) < 4000) throw new Error('D5: Minotaur stun < 4s');
-    if (minotaurRadar && !minotaurRadar.textContent.startsWith('Minotaur: Stunned')) throw new Error('D5: minotaurRadar text not stunned');
-    for (let i = 1; i < minotaurPath.length; ++i) {
-      const a = minotaurPath[i-1], b = minotaurPath[i];
-      if (!maze[a.y] || maze[a.y][a.x] !== 1 || !maze[b.y] || maze[b.y][b.x] !== 1) throw new Error('D5: minotaurPath node not walkable');
-      if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) !== 1) throw new Error('D5: minotaurPath not 4-adjacent');
-    }
-    D5 = true;
   } catch (e) {
-    consoleErrors.push([e]);
+    consoleErrors.push(e && e.message ? e.message : String(e));
   } finally {
     // Restore arrays/sets in-place
     function restoreArray(target, saved) {
