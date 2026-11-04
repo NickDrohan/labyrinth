@@ -239,16 +239,27 @@ body {
     text-shadow: 1px 1px 2px #000;
     margin: 5px;
 }
-
 #flareCounter.active {
     color: #fff066;
     font-weight: bold;
 }
+#decoyCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ff66b2;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
 
-#flareButton {
-    background: #4d3800;
-    color: #ffcc33;
-    border: 1px solid #ffcc33;
+#decoyCounter.active {
+    color: #ffb3d9;
+    font-weight: bold;
+}
+
+#decoyButton {
+    background: #4a1230;
+    color: #ff66b2;
+    border: 1px solid #ff66b2;
     padding: 6px 14px;
     border-radius: 6px;
     font-size: 1rem;
@@ -256,7 +267,7 @@ body {
     margin: 4px;
 }
 
-#flareButton:disabled {
+#decoyButton:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -296,6 +307,7 @@ body {
 }
 
 h1 {
+
     font-size: 3rem;
     margin: 20px 0;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
