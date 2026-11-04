@@ -499,7 +499,6 @@ window.runOwlSmokeSpec = function() {
       O6 = a && b && c && d;
     }
 
-
     // O4: 22-step countdown
     for (let i = athenaShrines.length - 1; i >= 0; i--) { const s = athenaShrines[i]; if ((s.x === savedPlayerX && s.y === savedPlayerY) || (s.x === validDir.nx && s.y === validDir.ny)) athenaShrines.splice(i, 1); }
     playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1; minotaurActive = false; minotaurX = -1; minotaurY = -1;
