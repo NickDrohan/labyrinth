@@ -26,11 +26,6 @@
     zoom: 1.0;
     user-zoom: fixed;
 }
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
 
 body {
     font-family: Arial, sans-serif;
@@ -208,6 +203,35 @@ body {
     cursor: not-allowed;
 }
 
+#breachCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ff5533;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#breachCounter.ready {
+    color: #ffaa88;
+    font-weight: bold;
+}
+
+#breachButton {
+    background: #4d1911;
+    color: #ff6644;
+    border: 1px solid #ff6644;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#breachButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .win-overlay {
     position: fixed;
     top: 0;
@@ -223,33 +247,22 @@ body {
     align-items: center;
     z-index: 10;
 }
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
-.lose-overlay {
-    align-items: center;
-    z-index: 1000;
-    display: none;
-}
 
 @viewport {
     width: device-width;
     zoom: 1.0;
     user-zoom: fixed;
 }
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
 
+body {
+    /* Add these properties to prevent zooming */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* Keep existing body styles */
+    margin: 0;
+    
 body {
     /* Add these properties to prevent zooming */
     touch-action: manipulation;
