@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
-
     const dashBtn = document.getElementById('dashButton');
     if (dashBtn) {
         dashBtn.addEventListener('click', function() {
@@ -58,7 +57,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+    const recallBtn = document.getElementById('recallButton');
+    if (recallBtn) {
+        recallBtn.addEventListener('click', function() {
+            triggerChronosRecall();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
+
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
 let secretPassageFadeTimeout = null;
@@ -187,6 +194,14 @@ const MINOTAUR_REPEL_STEPS = 15;
 let repelFlashUntil = 0;
 let hermesShrines = [];
 window.hermesShrines = hermesShrines;
+let chronosShrines = [];
+window.chronosShrines = chronosShrines;
+let playerRecalls = 0;
+const MAX_RECALLS = 3;
+const CHRONOS_SHRINE_COUNT = 16;
+const CHRONOS_STUN_MS = 5000;
+let chronosAnchor = null;
+let recallFlashUntil = 0;
 let playerDashes = 0;
 const MAX_DASHES = 3;
 const HERMES_SHRINE_COUNT = 16;
@@ -284,6 +299,12 @@ function getForbiddenTiles() {
   }
   if (Array.isArray(hermesShrines)) {
     for (const h of hermesShrines) forbidden.add(`${h.x},${h.y}`);
+  }
+  if (Array.isArray(chronosShrines)) {
+    for (const c of chronosShrines) forbidden.add(`${c.x},${c.y}`);
+  }
+  if (chronosAnchor) {
+    forbidden.add(`${chronosAnchor.x},${chronosAnchor.y}`);
   }
   return forbidden;
 }
@@ -683,6 +704,7 @@ function triggerPhaseDash() {
   if (dist === 2 && maze[ty1] && maze[ty1][tx1] === 1 && !gates.some(g => g.x === tx1 && g.y === ty1)) {
     visitedTiles.add(`${tx1},${ty1}`);
     minotaurPath.push({ x: tx1, y: ty1 });
+    collectRecallAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -716,6 +738,7 @@ function triggerPhaseDash() {
   }
   onPlayerThreadStep();
   collectHermesAt(playerX, playerY);
+  collectRecallAt(playerX, playerY);
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -749,6 +772,7 @@ function triggerPhaseDash() {
     if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
     collectShieldAt(playerX, playerY);
     collectHermesAt(playerX, playerY);
+    collectRecallAt(playerX, playerY);
     showSecretPassageMessage();
   }
   // Check Minotaur collision
@@ -756,6 +780,7 @@ function triggerPhaseDash() {
     if (playerShields > 0) {
       triggerAegisRepel(true);
       updateDashUI();
+      updateRecallUI();
       return true;
     }
     gameLost = true;
@@ -764,6 +789,7 @@ function triggerPhaseDash() {
     updateSpoolUI();
     updateShieldUI();
     updateDashUI();
+    updateRecallUI();
     drawMaze();
     return true;
   }
@@ -781,17 +807,150 @@ function triggerPhaseDash() {
     updateSpoolUI();
     updateShieldUI();
     updateDashUI();
+    updateRecallUI();
     drawMaze();
     return true;
   }
   showBannerMessage(dist === 2 && maze[ty1] && maze[ty1][tx1] === 0 ? 'Phase Dash! Phased through solid wall!' : 'Phase Dash! Vaulted ahead!', 'rgba(190,115,0,0.9)');
   updateDashUI();
   updateShieldUI();
+  updateRecallUI();
+  drawMaze();
+  return true;
+}
+window.triggerPhaseDash = triggerPhaseDash;
+
+const collectDashAt = collectHermesAt;
+
+function updateRecallUI() {
+  const counter = document.getElementById('recallCounter');
+  const button = document.getElementById('recallButton');
+  if (chronosAnchor) {
+    const d = Math.abs(playerX - chronosAnchor.x) + Math.abs(playerY - chronosAnchor.y);
+    counter.textContent = 'Recalls: ' + playerRecalls + ' (Anchored Δ' + d + ')';
+    counter.classList.toggle('anchored', true);
+  } else {
+    counter.textContent = 'Recalls: ' + playerRecalls + ' (Ready)';
+    counter.classList.toggle('anchored', false);
+  }
+  button.textContent = chronosAnchor ? 'Recall to Anchor (B)' : 'Set Anchor (B)';
+  button.disabled = playerRecalls <= 0 || gameWon || gameLost;
+}
+
+function placeChronosShrines() {
+  chronosShrines.length = 0;
+  window.chronosShrines = chronosShrines;
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+  for (const k of keys) anchors.push(k);
+  for (const g of gates) anchors.push(g);
+  for (const t of torchPickups) anchors.push(t);
+  for (const p of secretPassages) {
+    anchors.push({ x: p.fromX, y: p.fromY });
+    anchors.push({ x: p.toX, y: p.toY });
+  }
+  for (const s of threadSpools) anchors.push(s);
+  for (const a of aegisShrines) anchors.push(a);
+  for (const h of hermesShrines) anchors.push(h);
+  const H = maze.length;
+  const W = maze[0].length;
+  const far = (x, y, list) => list.every(a => Math.abs(a.x - x) + Math.abs(a.y - y) >= 5);
+  const tryPlaceChronos = (count, minR, maxR, maxAttempts) => {
+    let attempts = 0;
+    while (count > 0 && chronosShrines.length < CHRONOS_SHRINE_COUNT && attempts < maxAttempts) {
+      attempts++;
+      const dx = Math.floor(Math.random() * (maxR * 2 + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (maxR * 2 + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      const x = playerX + dx;
+      const y = playerY + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, chronosShrines)) {
+        chronosShrines.push({ x, y });
+        count--;
+      }
+    }
+  };
+  tryPlaceChronos(5, 6, 35, 6000);
+  if (chronosShrines.length < 3) {
+    for (let d = 6; d <= 35 && chronosShrines.length < 3; d++) {
+      for (let dx = -d; dx <= d; dx++) {
+        const dy = d - Math.abs(dx);
+        const sx = playerX + dx;
+        const sy = playerY + dy;
+        if (sx >= 0 && sx < W && sy >= 0 && sy < H && maze[sy][sx] === 1 && far(sx, sy, anchors) && far(sx, sy, chronosShrines)) {
+          chronosShrines.push({ x: sx, y: sy });
+          break;
+        }
+        const sy2 = playerY - dy;
+        if (sx >= 0 && sx < W && sy2 >= 0 && sy2 < H && maze[sy2][sx] === 1 && far(sx, sy2, anchors) && far(sx, sy2, chronosShrines)) {
+          chronosShrines.push({ x: sx, y: sy2 });
+          break;
+        }
+      }
+    }
+  }
+  tryPlaceChronos(CHRONOS_SHRINE_COUNT, 8, 160, 25000);
+  tryPlaceChronos(CHRONOS_SHRINE_COUNT, 5, W + H, 50000);
+  window.chronosShrines = chronosShrines;
+}
+
+function collectRecallAt(x, y) {
+  if (playerRecalls >= MAX_RECALLS) return false;
+  const idx = chronosShrines.findIndex(s => s.x === x && s.y === y);
+  if (idx !== -1) {
+    chronosShrines.splice(idx, 1);
+    playerRecalls++;
+    showBannerMessage('Chronos Hourglass acquired! (' + playerRecalls + '/' + MAX_RECALLS + ')', 'rgba(110,30,160,0.9)');
+    updateRecallUI();
+    return true;
+  }
+  return false;
+}
+
+function triggerChronosRecall() {
+  if (gameWon || gameLost || playerRecalls <= 0) return false;
+  if (!chronosAnchor) {
+    chronosAnchor = { x: playerX, y: playerY };
+    recallFlashUntil = Date.now() + 450;
+    showBannerMessage('Chronos Anchor set! Press B again to warp back.', 'rgba(110,30,160,0.9)');
+    updateRecallUI();
+    drawMaze();
+    return true;
+  }
+  if (chronosAnchor.x === playerX && chronosAnchor.y === playerY) {
+    chronosAnchor = null;
+    showBannerMessage('Chronos Anchor packed up (no charge used).', 'rgba(110,30,160,0.9)');
+    updateRecallUI();
+    drawMaze();
+    return true;
+  }
+  playerRecalls--;
+  playerX = chronosAnchor.x;
+  playerY = chronosAnchor.y;
+  chronosAnchor = null;
+  visitedTiles.add(`${playerX},${playerY}`);
+  document.getElementById('uniqueTilesCounter').textContent = 'Unique tiles: ' + visitedTiles.size;
+  recallFlashUntil = Date.now() + 650;
+  minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHRONOS_STUN_MS);
+  minotaurPath = (minotaurActive && minotaurX >= 0 && minotaurY >= 0) ? [{ x: minotaurX, y: minotaurY }] : [];
+  collectSpoolAt(playerX, playerY);
+  collectShieldAt(playerX, playerY);
+  collectDashAt(playerX, playerY);
+  collectRecallAt(playerX, playerY);
+  updateSpoolUI();
+  updateShieldUI();
+  updateDashUI();
+  updateRecallUI();
+  showBannerMessage('Chronos Recall! Warped to anchor & Minotaur time-locked!', 'rgba(130,40,190,0.92)');
   drawMaze();
   return true;
 }
 
-window.triggerPhaseDash = triggerPhaseDash;
+window.triggerChronosRecall = triggerChronosRecall;
+
 function updateSpoolUI() {
   const c = document.getElementById('spoolCounter');
   if (c) c.textContent = 'Spools: ' + playerSpools;
@@ -889,10 +1048,12 @@ function collectSpoolAt(x, y) {
 
 function onPlayerThreadStep() {
   collectSpoolAt(playerX, playerY);
+  collectRecallAt(playerX, playerY);
   collectShieldAt(playerX, playerY);
   if (compassStepsRemaining > 0) compassStepsRemaining--;
   updateSpoolUI();
   updateShieldUI();
+  updateRecallUI();
 }
 
 window.getThreadState = () => ({
@@ -916,12 +1077,11 @@ window.getThreadState = () => ({
   playerDashes,
   lastMoveDir: { dx: lastMoveDir.dx, dy: lastMoveDir.dy },
   hermesShrines: hermesShrines.map(h => ({ x: h.x, y: h.y })),
-  steps
+  steps,
+  playerRecalls,
+  chronosAnchor: chronosAnchor ? { x: chronosAnchor.x, y: chronosAnchor.y } : null,
+  chronosShrines: chronosShrines.map(c => ({ x: c.x, y: c.y }))
 });
-
-window.getGameState = window.getThreadState;
-
-
 // Generate the maze
 let cameraMode = "center";
 const maze = generateMaze(1000, 1000);
@@ -1007,8 +1167,8 @@ function drawMaze() {
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                     mazeGraphics.endFill();
 
-                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, and hermes shrines)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY)) {
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, and chronos anchor)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY)) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -1105,6 +1265,20 @@ function drawMaze() {
                     mazeGraphics.endFill();
                 }
 
+                // Draw Chronos Hourglass shrines
+                if (chronosShrines.some(c => c.x === mazeX && c.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    // Outer violet circle
+                    mazeGraphics.beginFill(0xb266ff, 0.95);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.36);
+                    mazeGraphics.endFill();
+                    // Inner gold core
+                    mazeGraphics.beginFill(0xffea79, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.16);
+                    mazeGraphics.endFill();
+                }
+
                 // Draw secret passage 'from' tiles as swirling purple portals ON TOP of path tiles
                 if (secretPassages && secretPassages.length > 0) {
                     for (let i = 0; i < secretPassages.length; i++) {
@@ -1189,6 +1363,50 @@ function drawMaze() {
         mazeGraphics.closePath();
         mazeGraphics.endFill();
     }
+
+    // Draw Chronos Anchor tether and beacon
+    const playerScreenCenterX = (playerX - startX) * tileSize + tileSize / 2;
+    const playerScreenCenterY = (playerY - startY) * tileSize + tileSize / 2;
+    
+    if (chronosAnchor && chronosAnchor.x >= startX && chronosAnchor.x < startX + visibleWidth && chronosAnchor.y >= startY && chronosAnchor.y < startY + visibleHeight) {
+        const ax = (chronosAnchor.x - startX) * tileSize + tileSize / 2;
+        const ay = (chronosAnchor.y - startY) * tileSize + tileSize / 2;
+        
+        // Subtle tether line
+        mazeGraphics.lineStyle(2, 0xd580ff, 0.55);
+        mazeGraphics.moveTo(playerScreenCenterX, playerScreenCenterY);
+        mazeGraphics.lineTo(ax, ay);
+        mazeGraphics.lineStyle(0);
+        
+        // Violet-gold diamond beacon
+        // Outer violet diamond
+        mazeGraphics.beginFill(0xb266ff, 0.9);
+        mazeGraphics.drawPolygon([
+            ax, ay - tileSize * 0.45,
+            ax + tileSize * 0.45, ay,
+            ax, ay + tileSize * 0.45,
+            ax - tileSize * 0.45, ay
+        ]);
+        mazeGraphics.endFill();
+        
+        // Inner gold diamond
+        mazeGraphics.beginFill(0xffea79, 1);
+        mazeGraphics.drawPolygon([
+            ax, ay - tileSize * 0.22,
+            ax + tileSize * 0.22, ay,
+            ax, ay + tileSize * 0.22,
+            ax - tileSize * 0.22, ay
+        ]);
+        mazeGraphics.endFill();
+    }
+    
+    // Draw recall flash warp ring
+    if (Date.now() < recallFlashUntil) {
+        mazeGraphics.lineStyle(3, 0xd580ff, 0.9);
+        mazeGraphics.drawCircle(playerScreenCenterX, playerScreenCenterY, tileSize * 1.35);
+        mazeGraphics.lineStyle(0);
+    }
+    
     drawMinotaur();
     pixiApp.render();
 }
@@ -1440,15 +1658,6 @@ function drawMinotaur() {
     mazeGraphics.lineTo(centerX - size, centerY);
     mazeGraphics.endFill();
 
-
-    // Draw smaller, opaque purple diamond
-    mazeGraphics.beginFill(0x800080, 1);
-    mazeGraphics.moveTo(centerX, centerY - size);
-    mazeGraphics.lineTo(centerX + size, centerY);
-    mazeGraphics.lineTo(centerX, centerY + size);
-    mazeGraphics.lineTo(centerX - size, centerY);
-    mazeGraphics.endFill();
-
     // Draw stun ring if stunned
     if (Date.now() < minotaurStunnedUntil) {
         mazeGraphics.lineStyle(2, 0x00ff88, 0.95);
@@ -1559,6 +1768,13 @@ function initGame() {
     dashTrail = [];
     dashTrailUntil = 0;
     steps = 0;
+
+    // Reset Chronos state globals
+    chronosShrines.length = 0;
+    window.chronosShrines = chronosShrines;
+    playerRecalls = 0;
+    chronosAnchor = null;
+    recallFlashUntil = 0;
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -1687,6 +1903,8 @@ function initGame() {
     updateShieldUI();
     placeHermesShrines();
     updateDashUI();
+    placeChronosShrines();
+    updateRecallUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -1723,6 +1941,7 @@ function initGame() {
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
+                    updateRecallUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -1759,6 +1978,11 @@ function initGame() {
         if (event.key === 'f' || event.key === 'F' || event.key === ' ') {
             event.preventDefault();
             triggerPhaseDash();
+            return;
+        }
+        if (event.key === 'b' || event.key === 'B') {
+            event.preventDefault();
+            triggerChronosRecall();
             return;
         }
         let newX = playerX;
@@ -1884,6 +2108,7 @@ function initGame() {
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
+                    updateRecallUI();
                     drawMaze(); // Redraw maze with overlay on top
                     return;
                 }
@@ -1903,6 +2128,8 @@ function initGame() {
                     // Collect Hermes shrine if present
                     collectHermesAt(playerX, playerY);
                     updateDashUI();
+                    collectRecallAt(playerX, playerY);
+                    updateRecallUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -1929,6 +2156,8 @@ function initGame() {
                         gameLost = true;
                         updateSpoolUI();
                         updateShieldUI();
+                        updateDashUI();
+                        updateRecallUI();
                         const overlay = document.getElementById('loseOverlay');
                         if (overlay) {
                             overlay.style.display = 'flex';
@@ -1948,6 +2177,8 @@ function initGame() {
                         gameLost = true;
                         updateSpoolUI();
                         updateShieldUI();
+                        updateDashUI();
+                        updateRecallUI();
                         const overlay = document.getElementById('loseOverlay');
                         if (overlay) overlay.style.display = 'flex';
                         drawMaze();
@@ -1984,6 +2215,11 @@ function initMobileControls() {
         btn.addEventListener('touchstart', (e) => {
             e.preventDefault();
         }, { passive: false });
+
+        btn.addEventListener('click', () => {
+            const direction = btn.dataset.direction;
+            handleMobileMove(direction);
+        });
     });
 }
 
@@ -2105,6 +2341,10 @@ function handleMobileMove(direction) {
             collectHermesAt(playerX, playerY);
             updateDashUI();
 
+            // Collect recall at secret passage destination
+            collectRecallAt(playerX, playerY);
+            updateRecallUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -2135,6 +2375,7 @@ function handleMobileMove(direction) {
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
+                updateRecallUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -2165,6 +2406,7 @@ function handleMobileMove(direction) {
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
+                updateRecallUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -2182,6 +2424,7 @@ function handleMobileMove(direction) {
             updateSpoolUI();
             updateShieldUI();
             updateDashUI();
+            updateRecallUI();
             const overlay = document.getElementById('winOverlay');
             overlay.textContent = formatWinSummary();
             overlay.style.display = 'flex';

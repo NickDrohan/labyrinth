@@ -174,8 +174,36 @@ body {
     cursor: pointer;
     margin: 4px;
 }
-
 #dashButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#recallCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #d580ff;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#recallCounter.anchored {
+    color: #ffea79;
+    font-weight: bold;
+}
+
+#recallButton {
+    background: #32144d;
+    color: #d580ff;
+    border: 1px solid #d580ff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#recallButton:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -195,7 +223,6 @@ body {
     align-items: center;
     z-index: 10;
 }
-
 @viewport {
     width: device-width;
     zoom: 1.0;
