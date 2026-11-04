@@ -444,7 +444,6 @@ window.runOwlSmokeSpec = function() {
       O1 = Array.isArray(athenaShrines) && athenaShrines.length >= 12 && athenaShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) && athenaShrines.filter(s => md(s, st) <= 35).length >= 3 && athenaShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && athenaShrines.every((o, j) => j === i || md(s, o) >= 5));
     }
 
-
     // O2: Test owl pickup and cap
     minotaurActive = false; minotaurX = -1; minotaurY = -1; escapeX = -1; escapeY = -1;
     const directions = [
@@ -547,12 +546,11 @@ window.runOwlSmokeSpec = function() {
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
 
-
-    // Restore scalar globals
     playerX = savedPlayerX;
     playerY = savedPlayerY;
     escapeX = savedEscapeX;
     escapeY = savedEscapeY;
+
     minotaurActive = savedMinotaurActive;
     minotaurX = savedMinotaurX;
     minotaurY = savedMinotaurY;
