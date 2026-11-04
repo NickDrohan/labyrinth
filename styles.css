@@ -90,7 +90,9 @@ body {
     color: #ffd700;
     text-shadow: 1px 1px 2px #000;
     margin: 5px;
+    min-width: 170px;
 }
+
 
 #compassIndicator.active {
     color: #00e5ff;
@@ -154,6 +156,30 @@ body {
     cursor: not-allowed;
 }
 
+#dashCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffaa00;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#dashButton {
+    background: #4a2e00;
+    color: #ffaa00;
+    border: 1px solid #ffaa00;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#dashButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .win-overlay {
     position: fixed;
     top: 0;
@@ -167,8 +193,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
-    display: none;
+    z-index: 10;
 }
 
 @viewport {

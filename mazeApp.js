@@ -50,8 +50,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
-});
 
+    const dashBtn = document.getElementById('dashButton');
+    if (dashBtn) {
+        dashBtn.addEventListener('click', function() {
+            triggerPhaseDash();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+});
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
 let secretPassageFadeTimeout = null;
@@ -178,6 +185,15 @@ let minotaurStunnedUntil = 0;
 const MINOTAUR_STUN_MS = 8000;
 const MINOTAUR_REPEL_STEPS = 15;
 let repelFlashUntil = 0;
+let hermesShrines = [];
+window.hermesShrines = hermesShrines;
+let playerDashes = 0;
+const MAX_DASHES = 3;
+const HERMES_SHRINE_COUNT = 16;
+let lastMoveDir = { dx: 1, dy: 0 };
+let dashTrail = [];
+let dashTrailUntil = 0;
+let steps = 0;
 
 function isTorchTile(x, y) {
   return torchPickups.some(t => t.x === x && t.y === y);
@@ -202,8 +218,13 @@ const keys = [];
 const gates = [];
 let playerKeys = 0;
 
+// Escape tile position and win state globals
+let escapeX = -1;
+let escapeY = -1;
+let gameWon = false;
 
 function selectEscapeTile() {
+
   let valid = false;
   let attempts = 0;
   const maxAttempts = 1000;
@@ -260,6 +281,9 @@ function getForbiddenTiles() {
   }
   if (Array.isArray(aegisShrines)) {
     for (const a of aegisShrines) forbidden.add(`${a.x},${a.y}`);
+  }
+  if (Array.isArray(hermesShrines)) {
+    for (const h of hermesShrines) forbidden.add(`${h.x},${h.y}`);
   }
   return forbidden;
 }
@@ -526,6 +550,248 @@ function triggerAegisRepel(isAutoIntercept = false) {
 }
 
 window.triggerAegisRepel = triggerAegisRepel;
+function getDirectionArrow() {
+  if (lastMoveDir.dy === -1) return '↑';
+  if (lastMoveDir.dy === 1) return '↓';
+  if (lastMoveDir.dx === -1) return '←';
+  return '→';
+}
+
+function updateDashUI() {
+  const el = document.getElementById('dashCounter');
+  if (el) el.textContent = `Dashes: ${playerDashes} (${getDirectionArrow()})`;
+  const btn = document.getElementById('dashButton');
+  if (btn) btn.disabled = playerDashes <= 0 || gameWon || gameLost;
+}
+
+function placeHermesShrines() {
+  hermesShrines.length = 0;
+  window.hermesShrines = hermesShrines;
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+  if (Array.isArray(keys)) for (const k of keys) anchors.push({ x: k.x, y: k.y });
+  if (Array.isArray(gates)) for (const g of gates) anchors.push({ x: g.x, y: g.y });
+  if (Array.isArray(torchPickups)) for (const t of torchPickups) anchors.push({ x: t.x, y: t.y });
+  if (Array.isArray(secretPassages)) {
+    for (const s of secretPassages) {
+      anchors.push({ x: s.fromX, y: s.fromY });
+      anchors.push({ x: s.toX, y: s.toY });
+    }
+  }
+  if (Array.isArray(threadSpools)) for (const t of threadSpools) anchors.push({ x: t.x, y: t.y });
+  if (Array.isArray(aegisShrines)) for (const a of aegisShrines) anchors.push({ x: a.x, y: a.y });
+
+  const far = (x, y, list) => {
+    for (const p of list) {
+      if (Math.abs(x - p.x) + Math.abs(y - p.y) < 5) return false;
+    }
+    return true;
+  };
+
+  const isPath = (x, y) => y >= 0 && y < maze.length && x >= 0 && x < maze[0].length && maze[y][x] === 1;
+
+  // Random sampling: up to 5 shrines in radius 6..35 around (playerX, playerY)
+  let attempts = 0;
+  while (hermesShrines.length < 5 && attempts < 6000) {
+    const d = Math.floor(Math.random() * 30) + 6; // 6..35
+    const angle = Math.random() * Math.PI * 2;
+    const cx = Math.round(playerX + d * Math.cos(angle));
+    const cy = Math.round(playerY + d * Math.sin(angle));
+    if (isPath(cx, cy) && far(cx, cy, anchors) && far(cx, cy, hermesShrines)) {
+      hermesShrines.push({ x: cx, y: cy });
+    }
+    attempts++;
+  }
+
+  // Deterministic ring fallback: at least 3 shrines within Manhattan distance <= 35
+  for (let d = 6; d <= 35 && hermesShrines.length < 12; d++) {
+    const foundInRing = [];
+    for (let x = playerX - d; x <= playerX + d && hermesShrines.length < 12; x++) {
+      const y1 = playerY + (d - Math.abs(x - playerX));
+      const y2 = playerY - (d - Math.abs(x - playerX));
+      for (const cy of [y1, y2]) {
+        if (cy >= 0 && cy < maze.length && x >= 0 && x < maze[0].length && isPath(x, cy) && far(x, cy, anchors) && far(x, cy, hermesShrines)) {
+          hermesShrines.push({ x: x, y: cy });
+        }
+      }
+    }
+  }
+
+  // Fill remaining shrines across radii 8..160 and full map via tryPlaceHermes
+  // tryPlaceHermes is assumed available from prior systems
+  function tryPlaceHermes(count, minR, maxR, maxAttempts) {
+    for (let a = 0; a < maxAttempts && count > 0 && hermesShrines.length < HERMES_SHRINE_COUNT; a++) {
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      const x = playerX + dx;
+      const y = playerY + dy;
+      if (isPath(x, y) && far(x, y, anchors) && far(x, y, hermesShrines)) {
+        hermesShrines.push({ x, y });
+      }
+    }
+  }
+
+  tryPlaceHermes(HERMES_SHRINE_COUNT - hermesShrines.length, 8, 160, 25000);
+  tryPlaceHermes(HERMES_SHRINE_COUNT - hermesShrines.length, 5, maze[0].length + maze.length, 50000);
+}
+
+function collectHermesAt(x, y) {
+  if (playerDashes >= MAX_DASHES) return false;
+  const i = hermesShrines.findIndex(h => h.x === x && h.y === y);
+  if (i === -1) return false;
+  hermesShrines.splice(i, 1);
+  playerDashes++;
+  showBannerMessage('Winged Sandals! Phase Dash (' + playerDashes + '/' + MAX_DASHES + ')', 'rgba(180,100,0,0.9)');
+  updateDashUI();
+  return true;
+}
+
+function canLandOnTile(tx, ty) {
+  if (tx < 0 || tx >= maze[0].length || ty < 0 || ty >= maze.length) return false;
+  if (maze[ty][tx] !== 1) return false;
+  if (gates.some(g => g.x === tx && g.y === ty)) return playerKeys > 0;
+  return true;
+}
+
+function formatWinSummary() {
+  const score = Math.max(100, 5000 - steps * 2 + visitedTiles.size * 5 + (playerSpools + playerShields + playerDashes + playerKeys) * 150);
+  return `You Escaped! Steps: ${steps} | Tiles: ${visitedTiles.size} | Score: ${score}`;
+}
+
+function triggerPhaseDash() {
+  if (gameWon || gameLost || playerDashes <= 0) return false;
+  const tx1 = playerX + lastMoveDir.dx;
+  const ty1 = playerY + lastMoveDir.dy;
+  const tx2 = playerX + 2 * lastMoveDir.dx;
+  const ty2 = playerY + 2 * lastMoveDir.dy;
+  let landX, landY, dist;
+  if (canLandOnTile(tx2, ty2)) {
+    landX = tx2; landY = ty2; dist = 2;
+  } else if (canLandOnTile(tx1, ty1)) {
+    landX = tx1; landY = ty1; dist = 1;
+  } else {
+    showBannerMessage('Dash blocked! Face an open corridor or thin wall.', 'rgba(140,40,0,0.9)');
+    return false;
+  }
+  playerDashes--;
+  dashTrail = [{ x: playerX, y: playerY }, { x: tx1, y: ty1 }, { x: landX, y: landY }];
+  dashTrailUntil = Date.now() + 700;
+  if (dist === 2 && maze[ty1] && maze[ty1][tx1] === 1 && !gates.some(g => g.x === tx1 && g.y === ty1)) {
+    visitedTiles.add(`${tx1},${ty1}`);
+    minotaurPath.push({ x: tx1, y: ty1 });
+  }
+  const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
+  if (gIdx !== -1) {
+    playerKeys--;
+    gates.splice(gIdx, 1);
+    const kc = document.getElementById('keyCounter');
+    if (kc) kc.textContent = 'Keys: ' + playerKeys;
+  }
+  playerX = landX; playerY = landY; steps++;
+  const sc = document.getElementById('stepCounter');
+  if (sc) sc.textContent = 'Steps: ' + steps;
+  visitedTiles.add(`${playerX},${playerY}`);
+  const uc = document.getElementById('uniqueTilesCounter');
+  if (uc) uc.textContent = 'Unique Tiles: ' + visitedTiles.size;
+  minotaurPath.push({ x: playerX, y: playerY });
+  // Handle pickups
+    // Handle pickups
+  const kIdx = keys.findIndex(k => k.x === playerX && k.y === playerY);
+  if (kIdx !== -1) {
+    playerKeys++;
+    keys.splice(kIdx, 1);
+    const kc = document.getElementById('keyCounter');
+    if (kc) kc.textContent = 'Keys: ' + playerKeys;
+  }
+  const tIdx = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+  if (tIdx !== -1) {
+    torchPickups.splice(tIdx, 1);
+    torchActive = true;
+    torchStepsRemaining = TORCH_EFFECT_STEPS;
+    updateTorchIndicator();
+  }
+  onPlayerThreadStep();
+  collectHermesAt(playerX, playerY);
+  if (torchActive) {
+    torchStepsRemaining--;
+    if (torchStepsRemaining <= 0) {
+      torchActive = false;
+      torchStepsRemaining = 0;
+    }
+    updateTorchIndicator();
+  }
+  // Check secret passage
+  const passage = secretPassages.find(p => p.fromX === playerX && p.fromY === playerY);
+  if (passage) {
+    playerX = passage.toX; playerY = passage.toY;
+    visitedTiles.add(`${playerX},${playerY}`);
+    const uc = document.getElementById('uniqueTilesCounter');
+    if (uc) uc.textContent = 'Unique Tiles: ' + visitedTiles.size;
+    minotaurPath.push({ x: playerX, y: playerY });
+    const kIdx2 = keys.findIndex(k => k.x === playerX && k.y === playerY);
+    if (kIdx2 !== -1) {
+      playerKeys++;
+      keys.splice(kIdx2, 1);
+      const kc = document.getElementById('keyCounter');
+      if (kc) kc.textContent = 'Keys: ' + playerKeys;
+    }
+    const tIdx2 = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+    if (tIdx2 !== -1) {
+      torchPickups.splice(tIdx2, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      updateTorchIndicator();
+    }
+    if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+    collectShieldAt(playerX, playerY);
+    collectHermesAt(playerX, playerY);
+    showSecretPassageMessage();
+  }
+  // Check Minotaur collision
+  if (minotaurActive && playerX === minotaurX && playerY === minotaurY) {
+    if (playerShields > 0) {
+      triggerAegisRepel(true);
+      updateDashUI();
+      return true;
+    }
+    gameLost = true;
+    const lo = document.getElementById('loseOverlay');
+    if (lo) lo.style.display = 'flex';
+    updateSpoolUI();
+    updateShieldUI();
+    updateDashUI();
+    drawMaze();
+    return true;
+  }
+  // Check escape victory
+  if (playerX === escapeX && playerY === escapeY) {
+    gameWon = true;
+    clearInterval(minotaurInterval);
+    torchActive = false; torchStepsRemaining = 0; compassStepsRemaining = 0;
+    const wo = document.getElementById('winOverlay');
+    if (wo) {
+      wo.textContent = formatWinSummary();
+      wo.style.display = 'flex';
+    }
+    updateTorchIndicator();
+    updateSpoolUI();
+    updateShieldUI();
+    updateDashUI();
+    drawMaze();
+    return true;
+  }
+  showBannerMessage(dist === 2 && maze[ty1] && maze[ty1][tx1] === 0 ? 'Phase Dash! Phased through solid wall!' : 'Phase Dash! Vaulted ahead!', 'rgba(190,115,0,0.9)');
+  updateDashUI();
+  updateShieldUI();
+  drawMaze();
+  return true;
+}
+
+window.triggerPhaseDash = triggerPhaseDash;
 function updateSpoolUI() {
   const c = document.getElementById('spoolCounter');
   if (c) c.textContent = 'Spools: ' + playerSpools;
@@ -646,13 +912,14 @@ window.getThreadState = () => ({
   minotaurY,
   minotaurActive,
   minotaurStunned: Date.now() < minotaurStunnedUntil,
-  minotaurStatus: getMinotaurStatusLabel()
+  minotaurStatus: getMinotaurStatusLabel(),
+  playerDashes,
+  lastMoveDir: { dx: lastMoveDir.dx, dy: lastMoveDir.dy },
+  hermesShrines: hermesShrines.map(h => ({ x: h.x, y: h.y })),
+  steps
 });
 
 window.getGameState = window.getThreadState;
-let escapeX = -1;
-let escapeY = -1;
-let gameWon = false;
 
 
 // Generate the maze
@@ -740,8 +1007,8 @@ function drawMaze() {
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                     mazeGraphics.endFill();
 
-                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, and aegis shrines)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY)) {
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, and hermes shrines)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY)) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -821,6 +1088,23 @@ function drawMaze() {
                     mazeGraphics.endFill();
                 }
 
+                // Draw Hermes Winged Sandals shrines
+                if (hermesShrines.some(h => h.x === mazeX && h.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    mazeGraphics.beginFill(0xffaa00, 0.95);
+                    mazeGraphics.drawCircle(cx, cy, tileSize / 2.5);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0xffffff, 0.9);
+                    mazeGraphics.drawPolygon([
+                        cx - 5, cy - 2,
+                        cx + 1, cy - 6,
+                        cx + 5, cy - 1,
+                        cx - 1, cy + 5
+                    ]);
+                    mazeGraphics.endFill();
+                }
+
                 // Draw secret passage 'from' tiles as swirling purple portals ON TOP of path tiles
                 if (secretPassages && secretPassages.length > 0) {
                     for (let i = 0; i < secretPassages.length; i++) {
@@ -874,6 +1158,17 @@ function drawMaze() {
                 }
             }
         }
+    }
+    if (Date.now() < dashTrailUntil && dashTrail.length >= 2) {
+        mazeGraphics.lineStyle(4, 0xffaa00, 0.85);
+        for (let i = 0; i < dashTrail.length; i++) {
+            const pt = dashTrail[i];
+            const px = (pt.x - startX) * tileSize + tileSize / 2;
+            const py = (pt.y - startY) * tileSize + tileSize / 2;
+            if (i === 0) mazeGraphics.moveTo(px, py);
+            else mazeGraphics.lineTo(px, py);
+        }
+        mazeGraphics.lineStyle(0);
     }
     if (compassStepsRemaining > 0 && !gameWon && (escapeX !== playerX || escapeY !== playerY)) {
         const angle = Math.atan2(escapeY - playerY, escapeX - playerX);
@@ -1249,7 +1544,6 @@ function initGame() {
     window.threadSpools = threadSpools;
     playerSpools = 0;
     compassStepsRemaining = 0;
-
     // Reset Aegis Shield state
     aegisShrines.length = 0;
     window.aegisShrines = aegisShrines;
@@ -1257,9 +1551,17 @@ function initGame() {
     minotaurStunnedUntil = 0;
     repelFlashUntil = 0;
 
+    // Reset Hermes Winged Sandals & Phase Dash state
+    hermesShrines.length = 0;
+    window.hermesShrines = hermesShrines;
+    playerDashes = 0;
+    lastMoveDir = { dx: 1, dy: 0 };
+    dashTrail = [];
+    dashTrailUntil = 0;
+    steps = 0;
+
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
-
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
     function findShortestPath(sx, sy, ex, ey) {
         const parent = {};
@@ -1383,6 +1685,8 @@ function initGame() {
     minotaurPath = spawnMinotaur();
     placeAegisShrines();
     updateShieldUI();
+    placeHermesShrines();
+    updateDashUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -1406,6 +1710,7 @@ function initGame() {
                 minotaurX = nextPosition.x;
                 minotaurY = nextPosition.y;
                 stepCount++; // Increment step count
+                steps = stepCount;
                 document.getElementById('stepCounter').textContent = `Steps: ${stepCount}`; // Update step counter
 
                 // Check for collision with the user
@@ -1417,6 +1722,7 @@ function initGame() {
                     gameLost = true;
                     updateSpoolUI();
                     updateShieldUI();
+                    updateDashUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -1448,6 +1754,13 @@ function initGame() {
             triggerAegisRepel(false);
             return;
         }
+
+        // Handle Phase Dash
+        if (event.key === 'f' || event.key === 'F' || event.key === ' ') {
+            event.preventDefault();
+            triggerPhaseDash();
+            return;
+        }
         let newX = playerX;
         let newY = playerY;
 
@@ -1476,6 +1789,10 @@ function initGame() {
                 return;
         }
 
+        // Update facing direction and UI even when movement blocked
+        lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
+        updateDashUI();
+
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
             // Check if the new position is a path (white tile)
@@ -1498,6 +1815,16 @@ function initGame() {
                 playerX = newX; // Update player position
                 playerY = newY; // Update player position
                 onPlayerThreadStep();
+
+                // Increment step counter and update UI
+                steps++;
+                stepCount = steps;
+                const stepCounterEl = document.getElementById('stepCounter');
+                if (stepCounterEl) stepCounterEl.textContent = `Steps: ${steps}`;
+
+                // Collect Hermes shrine if present
+                collectHermesAt(playerX, playerY);
+                updateDashUI();
 
                 // Check if the player is moving backwards
                 if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) {
@@ -1546,7 +1873,7 @@ function initGame() {
                     // Display win overlay using persistent overlay element
                     const overlay = document.getElementById('winOverlay');
                     if (overlay) {
-                        overlay.textContent = `You Escaped! Steps: ${stepCount}, Unique Tiles: ${visitedTiles.size}, Keys: ${playerKeys}`;
+                        overlay.textContent = formatWinSummary();
                         overlay.style.display = 'flex';
                     }
                     // Torch effect ends on win
@@ -1556,6 +1883,7 @@ function initGame() {
                     compassStepsRemaining = 0;
                     updateSpoolUI();
                     updateShieldUI();
+                    updateDashUI();
                     drawMaze(); // Redraw maze with overlay on top
                     return;
                 }
@@ -1571,6 +1899,10 @@ function initGame() {
                     if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
                     collectShieldAt(playerX, playerY);
                     updateShieldUI();
+
+                    // Collect Hermes shrine if present
+                    collectHermesAt(playerX, playerY);
+                    updateDashUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -1674,6 +2006,12 @@ function handleMobileMove(direction) {
         case 'right': newX++; break;
     }
 
+    // Update last move direction and dash UI even when movement is blocked
+    if (newX !== playerX || newY !== playerY) {
+        lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
+        updateDashUI();
+    }
+
     // Check if the new position is a gate
     const gateIdx = gates.findIndex(g => g.x === newX && g.y === newY);
     if (gateIdx !== -1) {
@@ -1718,6 +2056,11 @@ function handleMobileMove(direction) {
 
         onPlayerThreadStep();
 
+        // Increment steps and update step counter
+        steps++;
+        const sc = document.getElementById('stepCounter');
+        if (sc) sc.textContent = 'Steps: ' + steps;
+
         // Track unique tiles visited
         const tileKey = `${playerX},${playerY}`;
         if (!visitedTiles.has(tileKey)) {
@@ -1758,6 +2101,10 @@ function handleMobileMove(direction) {
             collectShieldAt(playerX, playerY);
             updateShieldUI();
 
+            // Collect Hermes shrine at secret passage destination
+            collectHermesAt(playerX, playerY);
+            updateDashUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -1781,11 +2128,13 @@ function handleMobileMove(direction) {
             if (playerX === minotaurX && playerY === minotaurY) {
                 if (playerShields > 0) {
                     triggerAegisRepel(true);
+                    updateDashUI();
                     return;
                 }
                 gameLost = true;
                 updateSpoolUI();
                 updateShieldUI();
+                updateDashUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -1809,11 +2158,13 @@ function handleMobileMove(direction) {
         if (playerX === minotaurX && playerY === minotaurY) {
             if (playerShields > 0) {
                 triggerAegisRepel(true);
+                updateDashUI();
                 return;
             } else {
                 gameLost = true;
                 updateSpoolUI();
                 updateShieldUI();
+                updateDashUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -1821,13 +2172,18 @@ function handleMobileMove(direction) {
             }
         }
 
+        // Collect Hermes shrine on regular tile move
+        collectHermesAt(playerX, playerY);
+        updateDashUI();
+
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
             compassStepsRemaining = 0;
             updateSpoolUI();
             updateShieldUI();
+            updateDashUI();
             const overlay = document.getElementById('winOverlay');
-            overlay.textContent = 'You Escaped! Steps: ' + document.getElementById('stepCounter').textContent + ', Unique Tiles: ' + visitedTiles.size + ', Keys: ' + playerKeys;
+            overlay.textContent = formatWinSummary();
             overlay.style.display = 'flex';
         }
         drawMaze();
@@ -1839,73 +2195,159 @@ function handleMobileMove(direction) {
 initMobileControls();
 // Restart button on the defeat overlay reloads the game
 document.getElementById('resetButton').addEventListener('click', () => {
-    initGame();
+    window.location.reload();
 });
 window.runThreadSmokeSpec = function() {
-    const st0 = window.getThreadState();
-    const p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
-        st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
-    const nearStart = st0.threadSpools.filter(s => Math.abs(s.x - st0.playerX) + Math.abs(s.y - st0.playerY) <= 40).length >= 3;
-    const p2 = nearStart && st0.threadSpools.every((s, i) => {
-        const dist = (x, y) => Math.abs(x - s.x) + Math.abs(y - s.y);
-        return dist(st0.playerX, st0.playerY) >= 5 &&
-            dist(st0.escapeX, st0.escapeY) >= 5 &&
-            keys.every(k => dist(k.x, k.y) >= 5) &&
-            gates.every(g => dist(g.x, g.y) >= 5) &&
-            torchPickups.every(t => dist(t.x, t.y) >= 5) &&
-            secretPassages.every(p => dist(p.fromX, p.fromY) >= 5 && dist(p.toX, p.toY) >= 5) &&
-            st0.threadSpools.every((o, j) => j === i || dist(o.x, o.y) >= 5);
-    });
-    const checkNoOpTKeys = () => {
-        const pre = window.getThreadState();
-        const prePathLen = minotaurPath.length;
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
-        const post = window.getThreadState();
-        return window.activateThreadCompass() === false &&
-            post.playerX === pre.playerX &&
-            post.playerY === pre.playerY &&
-            minotaurPath.length === prePathLen &&
-            post.playerSpools === pre.playerSpools &&
-            post.compassStepsRemaining === pre.compassStepsRemaining;
-    };
-    const p9Idle = st0.playerSpools === 0 && checkNoOpTKeys();
-    const dirs = [
-        { dx: 0, dy: -1, key: 'ArrowUp', mobile: 'up', opp: 'down' },
-        { dx: 0, dy: 1, key: 'ArrowDown', mobile: 'down', opp: 'up' },
-        { dx: -1, dy: 0, key: 'ArrowLeft', mobile: 'left', opp: 'right' },
-        { dx: 1, dy: 0, key: 'ArrowRight', mobile: 'right', opp: 'left' }
-    ];
-    const cur = window.getThreadState();
-    const validDir = dirs.find(d => {
-        const nx = cur.playerX + d.dx, ny = cur.playerY + d.dy;
-        return ny >= 0 && ny < maze.length && nx >= 0 && nx < maze[0].length && maze[ny][nx] === 1 &&
-            !gates.some(g => g.x === nx && g.y === ny) &&
-            !secretPassages.some(p => p.fromX === nx && p.fromY === ny);
-    });
-    let p4 = false, p5 = false, p6 = false, p9Active = false;
-    if (validDir) {
-        const tx = cur.playerX + validDir.dx, ty = cur.playerY + validDir.dy;
-        if (!threadSpools.some(s => s.x === tx && s.y === ty)) {
-            threadSpools.push({ x: tx, y: ty });
+    // Snapshot all mutable state before running checks
+    const savedPlayerX = playerX;
+    const savedPlayerY = playerY;
+    const savedEscapeX = escapeX;
+    const savedEscapeY = escapeY;
+    const savedPlayerSpools = playerSpools;
+    const savedCompassStepsRemaining = compassStepsRemaining;
+    const savedThreadSpools = threadSpools.map(s => ({ x: s.x, y: s.y }));
+    const savedVisited = Array.from(visitedTiles);
+    const savedMinotaurPath = minotaurPath.map(n => ({ x: n.x, y: n.y }));
+    const savedMinotaurX = minotaurX;
+    const savedMinotaurY = minotaurY;
+    const savedMinotaurActive = minotaurActive;
+    const savedMinotaurStunnedUntil = minotaurStunnedUntil;
+    const savedKeys = keys.map(k => ({ x: k.x, y: k.y }));
+    const savedGates = gates.map(g => ({ x: g.x, y: g.y }));
+    const savedPlayerKeys = playerKeys;
+    const savedTorchPickups = torchPickups.map(t => ({ x: t.x, y: t.y }));
+    const savedTorchActive = torchActive;
+    const savedTorchStepsRemaining = torchStepsRemaining;
+    const savedAegisShrines = aegisShrines.map(a => ({ x: a.x, y: a.y }));
+    const savedPlayerShields = playerShields;
+    const savedGameWon = gameWon;
+    const savedGameLost = gameLost;
+
+    try {
+        const st0 = window.getThreadState();
+        const p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
+            st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
+        const nearStart = st0.threadSpools.filter(s => Math.abs(s.x - st0.playerX) + Math.abs(s.y - st0.playerY) <= 40).length >= 3;
+        const p2 = nearStart && st0.threadSpools.every((s, i) => {
+            const dist = (x, y) => Math.abs(x - s.x) + Math.abs(y - s.y);
+            return dist(st0.playerX, st0.playerY) >= 5 &&
+                dist(st0.escapeX, st0.escapeY) >= 5 &&
+                keys.every(k => dist(k.x, k.y) >= 5) &&
+                gates.every(g => dist(g.x, g.y) >= 5) &&
+                torchPickups.every(t => dist(t.x, t.y) >= 5) &&
+                secretPassages.every(p => dist(p.fromX, p.fromY) >= 5 && dist(p.toX, p.toY) >= 5) &&
+                st0.threadSpools.every((o, j) => j === i || dist(o.x, o.y) >= 5);
+        });
+        const checkNoOpTKeys = () => {
+            const pre = window.getThreadState();
+            const prePathLen = minotaurPath.length;
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
+            const post = window.getThreadState();
+            return window.activateThreadCompass() === false &&
+                post.playerX === pre.playerX &&
+                post.playerY === pre.playerY &&
+                minotaurPath.length === prePathLen &&
+                post.playerSpools === pre.playerSpools &&
+                post.compassStepsRemaining === pre.compassStepsRemaining;
+        };
+        const p9Idle = st0.playerSpools === 0 && checkNoOpTKeys();
+        const dirs = [
+            { dx: 0, dy: -1, key: 'ArrowUp', mobile: 'up', opp: 'down' },
+            { dx: 0, dy: 1, key: 'ArrowDown', mobile: 'down', opp: 'up' },
+            { dx: -1, dy: 0, key: 'ArrowLeft', mobile: 'left', opp: 'right' },
+            { dx: 1, dy: 0, key: 'ArrowRight', mobile: 'right', opp: 'left' }
+        ];
+        const validDir = dirs.find(d => {
+            const nx = st0.playerX + d.dx, ny = st0.playerY + d.dy;
+            return ny >= 0 && ny < maze.length && nx >= 0 && nx < maze[0].length && maze[ny][nx] === 1 &&
+                !gates.some(g => g.x === nx && g.y === ny) &&
+                !secretPassages.some(p => p.fromX === nx && p.fromY === ny);
+        });
+        let p4 = false, p5 = false, p6 = false, p9Active = false;
+        if (validDir) {
+            // Temporarily disable win condition
+            escapeX = -1;
+            escapeY = -1;
+            const tx = st0.playerX + validDir.dx, ty = st0.playerY + validDir.dy;
+            if (!threadSpools.some(s => s.x === tx && s.y === ty)) {
+                threadSpools.push({ x: tx, y: ty });
+            }
+            const beforePickup = window.getThreadState();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
+            const afterPickup = window.getThreadState();
+            const counterEl = document.getElementById('spoolCounter');
+            p4 = afterPickup.playerSpools === beforePickup.playerSpools + 1 && (!!counterEl && counterEl.textContent === 'Spools: ' + afterPickup.playerSpools);
+            const activated = window.activateThreadCompass();
+            const afterAct = window.getThreadState();
+            const indEl = document.getElementById('compassIndicator');
+            p5 = activated === true && afterAct.playerSpools === afterPickup.playerSpools - 1 && afterAct.compassStepsRemaining === 25 &&
+                !!indEl && /^Compass: 25 \((Cold|Warm|Hot)\)$/.test(indEl.textContent) && indEl.classList.contains('active');
+            // Assign p9Active without shadowing
+            p9Active = afterAct.compassStepsRemaining === 25 && checkNoOpTKeys();
+            handleMobileMove(validDir.opp);
+            const afterMobile = window.getThreadState();
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
+            const afterKey = window.getThreadState();
+            p6 = afterMobile.compassStepsRemaining === 24 && afterKey.compassStepsRemaining === 23;
+            // Restore win condition
+            escapeX = savedEscapeX;
+            escapeY = savedEscapeY;
         }
-        const beforePickup = window.getThreadState();
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
-        const afterPickup = window.getThreadState();
-        const counterEl = document.getElementById('spoolCounter');
-        p4 = afterPickup.playerSpools === beforePickup.playerSpools + 1 && (!!counterEl && counterEl.textContent === 'Spools: ' + afterPickup.playerSpools);
-        const activated = window.activateThreadCompass();
-        const afterAct = window.getThreadState();
-        const indEl = document.getElementById('compassIndicator');
-        p5 = activated === true && afterAct.playerSpools === afterPickup.playerSpools - 1 && afterAct.compassStepsRemaining === 25 &&
-            !!indEl && /^Compass: 25 \((Cold|Warm|Hot)\)$/.test(indEl.textContent) && indEl.classList.contains('active');
-        const p9Active = afterAct.compassStepsRemaining === 25 && checkNoOpTKeys();
-        handleMobileMove(validDir.opp);
-        const afterMobile = window.getThreadState();
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
-        const afterKey = window.getThreadState();
-        p6 = afterMobile.compassStepsRemaining === 24 && afterKey.compassStepsRemaining === 23;
+        const p12 = Array.isArray(minotaurPath) && minotaurPath.every(n => n.y >= 0 && n.y < maze.length && n.x >= 0 && n.x < maze[0].length && maze[n.y][n.x] === 1);
+        return { P1: p1, P2: p2, P4: p4, P5: p5, P6: p6, P9: p9Idle && p9Active, P12: p12 };
+    } finally {
+        // Restore all mutable state
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = savedEscapeX;
+        escapeY = savedEscapeY;
+        playerSpools = savedPlayerSpools;
+        compassStepsRemaining = savedCompassStepsRemaining;
+        minotaurX = savedMinotaurX;
+        minotaurY = savedMinotaurY;
+        minotaurActive = savedMinotaurActive;
+        minotaurStunnedUntil = savedMinotaurStunnedUntil;
+        playerKeys = savedPlayerKeys;
+        torchActive = savedTorchActive;
+        torchStepsRemaining = savedTorchStepsRemaining;
+        playerShields = savedPlayerShields;
+        gameWon = savedGameWon;
+        gameLost = savedGameLost;
+
+        // Restore arrays in-place
+        threadSpools.length = 0;
+        savedThreadSpools.forEach(s => threadSpools.push(s));
+        window.threadSpools = threadSpools;
+
+        minotaurPath.length = 0;
+        savedMinotaurPath.forEach(n => minotaurPath.push(n));
+
+        keys.length = 0;
+        savedKeys.forEach(k => keys.push(k));
+
+        gates.length = 0;
+        savedGates.forEach(g => gates.push(g));
+
+        torchPickups.length = 0;
+        savedTorchPickups.forEach(t => torchPickups.push(t));
+
+        aegisShrines.length = 0;
+        savedAegisShrines.forEach(a => aegisShrines.push(a));
+        window.aegisShrines = aegisShrines;
+
+        // Restore visitedTiles
+        visitedTiles.clear();
+        savedVisited.forEach(k => visitedTiles.add(k));
+
+        // Update HUD elements
+        document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
+        document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+        document.getElementById('winOverlay').style.display = gameWon ? 'flex' : 'none';
+        document.getElementById('loseOverlay').style.display = gameLost ? 'flex' : 'none';
+        updateTorchIndicator();
+        updateSpoolUI();
+        updateShieldUI();
+        drawMaze();
     }
-    const p12 = Array.isArray(minotaurPath) && minotaurPath.every(n => n.y >= 0 && n.y < maze.length && n.x >= 0 && n.x < maze[0].length && maze[n.y][n.x] === 1);
-    return { P1: p1, P2: p2, P4: p4, P5: p5, P6: p6, P9: p9Idle && p9Active, P12: p12 };
 };
