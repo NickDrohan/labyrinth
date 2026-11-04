@@ -64,6 +64,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+    const flareBtn = document.getElementById('flareButton');
+    if (flareBtn) {
+        flareBtn.addEventListener('click', function() {
+            triggerSolarFlare();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
     const breachBtn = document.getElementById('breachButton');
     if (breachBtn) {
         breachBtn.addEventListener('click', function() {
@@ -195,6 +202,10 @@ window.aegisShrines = aegisShrines;
 let playerShields = 0;
 const MAX_SHIELDS = 3;
 const AEGIS_SHRINE_COUNT = 16;
+let minotaurStunnedUntil = 0;
+let repelFlashUntil = 0;
+const MINOTAUR_STUN_MS = 4000;
+const MINOTAUR_REPEL_STEPS = 12;
 let daedalusShrines = [];
 window.daedalusShrines = daedalusShrines;
 let breachedTiles = [];
@@ -202,14 +213,19 @@ window.breachedTiles = breachedTiles;
 let playerBreaches = 0;
 const MAX_BREACHES = 3;
 const DAEDALUS_SHRINE_COUNT = 16;
-const BREACH_STUN_MS = 3000;
+const BREACH_STUN_MS = 4000;
 let breachFlashUntil = 0;
-let minotaurStunnedUntil = 0;
-const MINOTAUR_STUN_MS = 8000;
-const MINOTAUR_REPEL_STEPS = 15;
-let repelFlashUntil = 0;
-let hermesShrines = [];
-window.hermesShrines = hermesShrines;
+let icarusShrines = [];
+window.icarusShrines = icarusShrines;
+let playerFlares = 0;
+const MAX_FLARES = 3;
+const ICARUS_SHRINE_COUNT = 16;
+let solarFlareStepsRemaining = 0;
+const SOLAR_FLARE_STEPS = 20;
+const SOLAR_FLARE_RADIUS = 22;
+const SOLAR_FLARE_STUN_MS = 6000;
+let solarFlareFlashUntil = 0;
+
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
 let playerRecalls = 0;
@@ -218,6 +234,8 @@ const CHRONOS_SHRINE_COUNT = 16;
 const CHRONOS_STUN_MS = 5000;
 let chronosAnchor = null;
 let recallFlashUntil = 0;
+let hermesShrines = [];
+window.hermesShrines = hermesShrines;
 let playerDashes = 0;
 const MAX_DASHES = 3;
 const HERMES_SHRINE_COUNT = 16;
@@ -321,6 +339,9 @@ function getForbiddenTiles() {
   }
   if (Array.isArray(daedalusShrines)) {
     for (const d of daedalusShrines) forbidden.add(`${d.x},${d.y}`);
+  }
+  if (Array.isArray(icarusShrines)) {
+    for (const ic of icarusShrines) forbidden.add(`${ic.x},${ic.y}`);
   }
   if (chronosAnchor) {
     forbidden.add(`${chronosAnchor.x},${chronosAnchor.y}`);
@@ -747,6 +768,7 @@ function triggerPhaseDash() {
     minotaurPath.push({ x: tx1, y: ty1 });
     collectRecallAt(tx1, ty1);
     collectBreachAt(tx1, ty1);
+    collectIcarusAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -781,6 +803,7 @@ function triggerPhaseDash() {
   collectHermesAt(playerX, playerY);
   collectBreachAt(playerX, playerY);
   collectRecallAt(playerX, playerY);
+  onPlayerFlareStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -816,6 +839,7 @@ function triggerPhaseDash() {
     collectHermesAt(playerX, playerY);
     collectBreachAt(playerX, playerY);
     collectRecallAt(playerX, playerY);
+    if (collectIcarusAt(playerX, playerY)) updateFlareUI();
     showSecretPassageMessage();
   }
   // Check Minotaur collision
@@ -825,6 +849,7 @@ function triggerPhaseDash() {
       updateDashUI();
       updateRecallUI();
       updateBreachUI();
+      updateFlareUI();
       return true;
     }
     gameLost = true;
@@ -835,6 +860,7 @@ function triggerPhaseDash() {
     updateDashUI();
     updateRecallUI();
     updateBreachUI();
+    updateFlareUI();
     drawMaze();
     return true;
   }
@@ -854,6 +880,8 @@ function triggerPhaseDash() {
     updateDashUI();
     updateRecallUI();
     updateBreachUI();
+    solarFlareStepsRemaining = 0;
+    updateFlareUI();
     drawMaze();
     return true;
   }
@@ -862,6 +890,7 @@ function triggerPhaseDash() {
   updateShieldUI();
   updateRecallUI();
   updateBreachUI();
+  updateFlareUI();
   drawMaze();
   return true;
 }
@@ -1092,11 +1121,13 @@ function triggerChronosRecall() {
   collectDashAt(playerX, playerY);
   collectRecallAt(playerX, playerY);
   collectBreachAt(playerX, playerY);
+  collectIcarusAt(playerX, playerY);
   updateSpoolUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
   updateRecallUI();
+  updateFlareUI();
   showBannerMessage('Chronos Recall! Warped to anchor & Minotaur time-locked!', 'rgba(130,40,190,0.92)');
   drawMaze();
   return true;
@@ -1140,6 +1171,7 @@ function triggerWallBreach() {
   }
   onPlayerThreadStep();
   collectHermesAt(playerX, playerY);
+  onPlayerFlareStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -1163,11 +1195,216 @@ function triggerWallBreach() {
   updateShieldUI();
   updateRecallUI();
   updateSpoolUI();
+  updateFlareUI();
   drawMaze();
   return true;
 }
 
 window.triggerWallBreach = triggerWallBreach;
+function placeIcarusShrines() {
+  icarusShrines.length = 0;
+  window.icarusShrines = icarusShrines;
+
+  const H = maze.length;
+  const W = maze[0].length;
+
+  // Build anchors list
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+
+  // Add keys
+  for (const k of keys) {
+    anchors.push({ x: k.x, y: k.y });
+  }
+
+  // Add gates
+  for (const g of gates) {
+    anchors.push({ x: g.x, y: g.y });
+  }
+
+  // Add torch pickups
+  for (const t of torchPickups) {
+    anchors.push({ x: t.x, y: t.y });
+  }
+
+  // Add secret passages
+  for (const p of secretPassages) {
+    anchors.push({ x: p.fromX, y: p.fromY });
+    anchors.push({ x: p.toX, y: p.toY });
+  }
+
+  // Add thread spools
+  for (const s of threadSpools) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  // Add aegis shrines
+  for (const s of aegisShrines) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  // Add hermes shrines
+  for (const s of hermesShrines) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  // Add chronos shrines
+  for (const s of chronosShrines) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  // Add daedalus shrines
+  for (const s of daedalusShrines) {
+    anchors.push({ x: s.x, y: s.y });
+  }
+
+  // Helper to check Manhattan distance >= 5
+  function far(x, y, list) {
+    for (const a of list) {
+      if (Math.abs(x - a.x) + Math.abs(y - a.y) < 5) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Helper to check if we can place at (x, y)
+  function canPlaceAt(x, y) {
+    return (
+      0 <= x && x < W &&
+      0 <= y && y < H &&
+      maze[y][x] === 1 &&
+      far(x, y, anchors) &&
+      far(x, y, icarusShrines)
+    );
+  }
+
+  // Try to place shrines with distance bias
+  function tryPlaceIcarus(targetCount, minR, maxR, maxAttempts) {
+    let attempts = 0;
+    while (icarusShrines.length < targetCount && attempts < maxAttempts) {
+      attempts++;
+      const dx = Math.floor(Math.random() * (maxR * 2 + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (maxR * 2 + 1)) - maxR;
+      if (Math.abs(dx) + Math.abs(dy) < minR) continue;
+      const x = playerX + dx;
+      const y = playerY + dy;
+      if (canPlaceAt(x, y)) {
+        icarusShrines.push({ x, y });
+      }
+    }
+  }
+
+  tryPlaceIcarus(5, 6, 35, 6000);
+
+  // Deterministic fallback ensuring at least 3 shrines within Manhattan distance 6..35
+  let placedCount = icarusShrines.length;
+  if (placedCount < 3) {
+    for (let d = 6; d <= 35; d++) {
+      for (let dx = -d; dx <= d; dx++) {
+        const dy = d - Math.abs(dx);
+        const x = playerX + dx;
+        const y = playerY + dy;
+        if (canPlaceAt(x, y)) {
+          icarusShrines.push({ x, y });
+          placedCount++;
+          if (placedCount >= 3) break;
+        }
+        const x2 = playerX + dx;
+        const y2 = playerY - dy;
+        if (canPlaceAt(x2, y2)) {
+          icarusShrines.push({ x: x2, y: y2 });
+          placedCount++;
+          if (placedCount >= 3) break;
+        }
+      }
+      if (placedCount >= 3) break;
+    }
+  }
+
+  // Place more shrines with different parameters
+  tryPlaceIcarus(ICARUS_SHRINE_COUNT, 8, 160, 25000);
+
+  // Final fallback with wider search
+  tryPlaceIcarus(ICARUS_SHRINE_COUNT, 5, W + H, 50000);
+
+  // Full grid fallback scan if needed
+  if (icarusShrines.length < 12) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (canPlaceAt(x, y)) {
+          icarusShrines.push({ x, y });
+          if (icarusShrines.length >= 12) break;
+        }
+      }
+      if (icarusShrines.length >= 12) break;
+    }
+  }
+
+  // Ensure we have at least 12 shrines
+  if (icarusShrines.length < 12) {
+    for (let y = 0; y < H && icarusShrines.length < 12; y++) {
+      for (let x = 0; x < W && icarusShrines.length < 12; x++) {
+        if (canPlaceAt(x, y)) {
+          icarusShrines.push({ x, y });
+        }
+      }
+    }
+  }
+}
+
+function updateFlareUI() {
+  const flareCounter = document.getElementById('flareCounter');
+  if (flareCounter) {
+    flareCounter.textContent = 'Flares: ' + playerFlares + (solarFlareStepsRemaining > 0 ? ' (' + solarFlareStepsRemaining + ')' : ' (Off)');
+    flareCounter.classList.toggle('active', solarFlareStepsRemaining > 0);
+  }
+  const flareButton = document.getElementById('flareButton');
+  if (flareButton) {
+    flareButton.disabled = Boolean(playerFlares <= 0 || solarFlareStepsRemaining > 0 || gameWon || gameLost);
+  }
+}
+
+function collectIcarusAt(x, y) {
+  if (playerFlares >= MAX_FLARES) {
+    return false;
+  }
+  const i = icarusShrines.findIndex(s => s.x === x && s.y === y);
+  if (i === -1) {
+    return false;
+  }
+  icarusShrines.splice(i, 1);
+  playerFlares++;
+  showBannerMessage('Icarus Sun Crystal acquired! (' + playerFlares + '/' + MAX_FLARES + ')', 'rgba(180,120,0,0.92)');
+  updateFlareUI();
+  return true;
+}
+
+function onPlayerFlareStep() {
+  collectIcarusAt(playerX, playerY);
+  if (solarFlareStepsRemaining > 0) {
+    solarFlareStepsRemaining--;
+  }
+  updateFlareUI();
+}
+
+function triggerSolarFlare() {
+  if (gameWon || gameLost || playerFlares <= 0 || solarFlareStepsRemaining > 0) {
+    return false;
+  }
+  playerFlares--;
+  solarFlareStepsRemaining = SOLAR_FLARE_STEPS;
+  solarFlareFlashUntil = Date.now() + 900;
+  minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + SOLAR_FLARE_STUN_MS);
+  showBannerMessage('Solar Flare ignited! 22-tile vision & Minotaur blinded!', 'rgba(200,140,0,0.92)');
+  updateFlareUI();
+  updateShieldUI();
+  drawMaze();
+  return true;
+}
+window.triggerSolarFlare = triggerSolarFlare;
 function updateSpoolUI() {
   const c = document.getElementById('spoolCounter');
   if (c) c.textContent = 'Spools: ' + playerSpools;
@@ -1300,7 +1537,10 @@ window.getThreadState = () => ({
   chronosShrines: chronosShrines.map(c => ({ x: c.x, y: c.y })),
   playerBreaches,
   daedalusShrines: daedalusShrines.map(d => ({ x: d.x, y: d.y })),
-  breachedTiles: breachedTiles.map(b => ({ x: b.x, y: b.y }))
+  breachedTiles: breachedTiles.map(b => ({ x: b.x, y: b.y })),
+  playerFlares,
+  solarFlareStepsRemaining,
+  icarusShrines: icarusShrines.map(s => ({ x: s.x, y: s.y }))
 });
 // Generate the maze
 let cameraMode = "center";
@@ -1372,7 +1612,8 @@ function drawMaze() {
             if (mazeY >= 0 && mazeY < 1000 && mazeX >= 0 && mazeX < 1000) {
                 // Skip/darken tiles outside vision radius
                 const distToPlayer = Math.max(Math.abs(mazeX - playerX), Math.abs(mazeY - playerY));
-                const effectiveRadius = torchActive ? TORCH_RADIUS_BOOSTED : TORCH_RADIUS_NORMAL;
+                const baseRadius = torchActive ? TORCH_RADIUS_BOOSTED : TORCH_RADIUS_NORMAL;
+                const effectiveRadius = solarFlareStepsRemaining > 0 ? Math.max(baseRadius, SOLAR_FLARE_RADIUS) : baseRadius;
                 if (distToPlayer > effectiveRadius) {
                     // Darken out-of-radius tiles
                     mazeGraphics.beginFill(0x001f3f, 0.3);
@@ -1388,6 +1629,13 @@ function drawMaze() {
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                     mazeGraphics.endFill();
 
+                    // Solar Flare rim tint (subtle, only on visible path tiles)
+                    if (solarFlareStepsRemaining > 0) {
+                        mazeGraphics.beginFill(0xffe066, 0.14);
+                        mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                        mazeGraphics.endFill();
+                    }
+
                     // Draw breached tiles with warm copper/orange rubble marks on top
                     if (breachedTiles.some(b => b.x === mazeX && b.y === mazeY)) {
                         mazeGraphics.beginFill(0xcc5522, 0.65);
@@ -1400,8 +1648,8 @@ function drawMaze() {
                         mazeGraphics.endFill();
                     }
 
-                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, and chronos anchor)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY)) {
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, chronos anchor, and uncollected Icarus shrines)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY)) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -1531,6 +1779,26 @@ function drawMaze() {
                     mazeGraphics.endFill();
                 }
 
+                // Icarus Sun Crystals
+                if (icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    // Outer diamond
+                    mazeGraphics.beginFill(0xffaa00, 0.95);
+                    mazeGraphics.moveTo(cx, cy - tileSize * 0.42);
+                    mazeGraphics.lineTo(cx + tileSize * 0.42, cy);
+                    mazeGraphics.lineTo(cx, cy + tileSize * 0.42);
+                    mazeGraphics.lineTo(cx - tileSize * 0.42, cy);
+                    mazeGraphics.closePath();
+                    // Rotated inner square
+                    mazeGraphics.beginFill(0xffdd44, 1);
+                    mazeGraphics.drawRect(cx - tileSize * 0.24, cy - tileSize * 0.24, tileSize * 0.48, tileSize * 0.48);
+                    // Bright center core
+                    mazeGraphics.beginFill(0xffffff, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.12);
+                    mazeGraphics.endFill();
+                }
+
                 // Secret passage portals
                 if (secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY)) {
                     mazeGraphics.beginFill(0x8000ff, 0.85);
@@ -1574,6 +1842,13 @@ function drawMaze() {
         mazeGraphics.lineStyle(0);
     }
 
+    // Draw solar flare flash ring
+    if (Date.now() < solarFlareFlashUntil) {
+        mazeGraphics.lineStyle(3, 0xffe066, 0.95);
+        mazeGraphics.drawCircle(playerScreenCenterX, playerScreenCenterY, tileSize * 1.65);
+        mazeGraphics.lineStyle(0);
+    }
+
     // Draw compass pointer
     if (compassStepsRemaining > 0 && !gameWon && (escapeX !== playerX || escapeY !== playerY)) {
         const a = Math.atan2(escapeY - playerY, escapeX - playerX);
@@ -1593,6 +1868,56 @@ function drawMaze() {
         mazeGraphics.lineTo(tx - h * Math.cos(a + Math.PI / 6), ty - h * Math.sin(a + Math.PI / 6));
         mazeGraphics.closePath();
         mazeGraphics.endFill();
+    }
+
+    // Draw up to 3 directional beacon pips
+    if (solarFlareStepsRemaining > 0 && !gameWon) {
+        const targets = [];
+        if (keys.length > 0) {
+            let nearestKey = null;
+            let minDist = Infinity;
+            for (const k of keys) {
+                const kx = (k.x - startX) * tileSize + tileSize / 2;
+                const ky = (k.y - startY) * tileSize + tileSize / 2;
+                const dist = Math.abs(k.x - playerX) + Math.abs(k.y - playerY);
+                if (dist > 0 && dist < minDist) {
+                    minDist = dist;
+                    nearestKey = k;
+                }
+            }
+            if (nearestKey) {
+                targets.push({ x: (nearestKey.x - startX) * tileSize + tileSize / 2, y: (nearestKey.y - startY) * tileSize + tileSize / 2, color: 0xffd700 });
+            }
+        }
+        if (escapeX >= 0 && escapeY >= 0 && (escapeX !== playerX || escapeY !== playerY)) {
+            targets.push({ x: (escapeX - startX) * tileSize + tileSize / 2, y: (escapeY - startY) * tileSize + tileSize / 2, color: 0x00ff66 });
+        }
+        if (gates.length > 0) {
+            let nearestGate = null;
+            let minDist = Infinity;
+            for (const g of gates) {
+                const gx = (g.x - startX) * tileSize + tileSize / 2;
+                const gy = (g.y - startY) * tileSize + tileSize / 2;
+                const dist = Math.abs(g.x - playerX) + Math.abs(g.y - playerY);
+                if (dist > 0 && dist < minDist) {
+                    minDist = dist;
+                    nearestGate = g;
+                }
+            }
+            if (nearestGate) {
+                targets.push({ x: (nearestGate.x - startX) * tileSize + tileSize / 2, y: (nearestGate.y - startY) * tileSize + tileSize / 2, color: 0x3399ff });
+            }
+        }
+        for (const t of targets) {
+            const ang = Math.atan2(t.y - playerScreenCenterY, t.x - playerScreenCenterX);
+            const bx = playerScreenCenterX + Math.cos(ang) * (tileSize * 1.15);
+            const by = playerScreenCenterY + Math.sin(ang) * (tileSize * 1.15);
+            mazeGraphics.lineStyle(1, 0x000000, 0.8);
+            mazeGraphics.beginFill(t.color, 1);
+            mazeGraphics.drawCircle(bx, by, tileSize * 0.18);
+            mazeGraphics.endFill();
+            mazeGraphics.lineStyle(0);
+        }
     }
 
     // Draw Minotaur
@@ -1970,6 +2295,11 @@ function initGame() {
     window.breachedTiles = breachedTiles;
     playerBreaches = 0;
     breachFlashUntil = 0;
+    icarusShrines.length = 0;
+    window.icarusShrines = icarusShrines;
+    playerFlares = 0;
+    solarFlareStepsRemaining = 0;
+    solarFlareFlashUntil = 0;
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -2102,6 +2432,8 @@ function initGame() {
     updateRecallUI();
     placeDaedalusShrines();
     updateBreachUI();
+    placeIcarusShrines();
+    updateFlareUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -2140,6 +2472,7 @@ function initGame() {
                     updateDashUI();
                     updateRecallUI();
                     updateBreachUI();
+                    updateFlareUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -2188,6 +2521,13 @@ function initGame() {
             triggerWallBreach();
             return;
         }
+        // Solar Flare hotkey
+        if (event.key === 'q' || event.key === 'Q') {
+            event.preventDefault();
+            triggerSolarFlare();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -2244,6 +2584,7 @@ function initGame() {
                 playerX = newX; // Update player position
                 playerY = newY; // Update player position
                 onPlayerThreadStep();
+                onPlayerFlareStep();
 
                 // Increment step counter and update UI
                 steps++;
@@ -2317,6 +2658,9 @@ function initGame() {
                     updateRecallUI();
                     updateBreachUI();
                     drawMaze(); // Redraw maze with overlay on top
+                    // Win: reset Solar Flare steps and update UI
+                    solarFlareStepsRemaining = 0;
+                    updateFlareUI();
                     return;
                 }
 
@@ -2339,6 +2683,8 @@ function initGame() {
                     updateDashUI();
                     collectRecallAt(playerX, playerY);
                     updateRecallUI();
+
+                    if (collectIcarusAt(playerX, playerY)) updateFlareUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -2368,6 +2714,8 @@ function initGame() {
                         updateDashUI();
                         updateRecallUI();
                         updateBreachUI();
+                        // Lose: update flare UI to disable button
+                        updateFlareUI();
                         const overlay = document.getElementById('loseOverlay');
                         if (overlay) {
                             overlay.style.display = 'flex';
@@ -2390,6 +2738,8 @@ function initGame() {
                         updateDashUI();
                         updateRecallUI();
                         updateBreachUI();
+                        // Lose: update flare UI to disable button
+                        updateFlareUI();
                         const overlay = document.getElementById('loseOverlay');
                         if (overlay) overlay.style.display = 'flex';
                         drawMaze();
@@ -2506,6 +2856,8 @@ function handleMobileMove(direction) {
 
         onPlayerThreadStep();
 
+        onPlayerFlareStep();
+
         // Increment steps and update step counter
         steps++;
         const sc = document.getElementById('stepCounter');
@@ -2588,6 +2940,7 @@ function handleMobileMove(direction) {
                     triggerAegisRepel(true);
                     updateDashUI();
                     updateBreachUI();
+                    updateFlareUI();
                     return;
                 }
                 gameLost = true;
@@ -2596,6 +2949,7 @@ function handleMobileMove(direction) {
                 updateDashUI();
                 updateRecallUI();
                 updateBreachUI();
+                updateFlareUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -2621,6 +2975,7 @@ function handleMobileMove(direction) {
                 triggerAegisRepel(true);
                 updateDashUI();
                 updateBreachUI();
+                updateFlareUI();
                 return;
             } else {
                 gameLost = true;
@@ -2629,6 +2984,7 @@ function handleMobileMove(direction) {
                 updateDashUI();
                 updateRecallUI();
                 updateBreachUI();
+                updateFlareUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -2649,6 +3005,8 @@ function handleMobileMove(direction) {
             updateDashUI();
             updateRecallUI();
             updateBreachUI();
+            solarFlareStepsRemaining = 0;
+            updateFlareUI();
             const overlay = document.getElementById('winOverlay');
             overlay.textContent = formatWinSummary();
             overlay.style.display = 'flex';

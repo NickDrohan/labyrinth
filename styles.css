@@ -232,6 +232,35 @@ body {
     cursor: not-allowed;
 }
 
+#flareCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffcc33;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#flareCounter.active {
+    color: #fff066;
+    font-weight: bold;
+}
+
+#flareButton {
+    background: #4d3800;
+    color: #ffcc33;
+    border: 1px solid #ffcc33;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#flareButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .win-overlay {
     position: fixed;
     top: 0;
@@ -248,21 +277,6 @@ body {
     z-index: 10;
 }
 
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
-
-body {
-    /* Add these properties to prevent zooming */
-    touch-action: manipulation;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    /* Keep existing body styles */
-    margin: 0;
-    
 body {
     /* Add these properties to prevent zooming */
     touch-action: manipulation;
