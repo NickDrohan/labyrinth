@@ -77,7 +77,11 @@ window.getThreadState = () => ({
   icarusShrines: icarusShrines.map(s => ({ x: s.x, y: s.y })),
   playerDecoys,
   orpheusShrines: orpheusShrines.map(o => ({ x: o.x, y: o.y })),
-  activeDecoy: activeDecoy ? { x: activeDecoy.x, y: activeDecoy.y, steps: activeDecoy.steps } : null
+  activeDecoy: activeDecoy ? { x: activeDecoy.x, y: activeDecoy.y, steps: activeDecoy.steps } : null,
+  playerOwls,
+  owlStepsRemaining,
+  athenaShrines: athenaShrines.map(a => ({ x: a.x, y: a.y })),
+  owlEscapePreviewLen: owlEscapePreview.length
 });
 window.runThreadSmokeSpec = function() {
     // Console error capture (T1)
@@ -128,6 +132,11 @@ window.runThreadSmokeSpec = function() {
     const savedOrpheusShrines = orpheusShrines.map(o => ({ x: o.x, y: o.y }));
     const savedActiveDecoy = activeDecoy ? { x: activeDecoy.x, y: activeDecoy.y, steps: activeDecoy.steps } : null;
     const savedDecoyFlashUntil = decoyFlashUntil;
+    const savedPlayerOwls = playerOwls;
+    const savedOwlStepsRemaining = owlStepsRemaining;
+    const savedOwlFlashUntil = owlFlashUntil;
+    const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
+    const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
     // Overlay display/textContent
     const winOverlay = document.getElementById('winOverlay');
     const loseOverlay = document.getElementById('loseOverlay');
@@ -154,6 +163,8 @@ window.runThreadSmokeSpec = function() {
     try {
         activeDecoy = null;
         window.activeDecoy = null;
+        owlStepsRemaining = 0;
+        owlEscapePreview = [];
         const st0 = window.getThreadState();
         p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
             st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
@@ -407,6 +418,13 @@ window.runThreadSmokeSpec = function() {
         activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
         window.activeDecoy = activeDecoy;
         decoyFlashUntil = savedDecoyFlashUntil;
+        athenaShrines.length = 0;
+        athenaShrines.push(...savedAthenaShrines);
+        window.athenaShrines = athenaShrines;
+        owlEscapePreview = savedOwlEscapePreview.map(p => ({ x: p.x, y: p.y }));
+        playerOwls = savedPlayerOwls;
+        owlStepsRemaining = savedOwlStepsRemaining;
+        owlFlashUntil = savedOwlFlashUntil;
         // Restore minotaurPath
         minotaurPath.length = 0;
         for (const n of savedMinotaurPath) minotaurPath.push({ x: n.x, y: n.y });
@@ -438,6 +456,7 @@ window.runThreadSmokeSpec = function() {
         updateBreachUI();
         updateFlareUI();
         updateDecoyUI();
+        updateOwlUI();
         drawMaze();
         // Restore console.error
         console.error = origConsoleError;

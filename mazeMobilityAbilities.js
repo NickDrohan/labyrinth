@@ -52,6 +52,7 @@ function triggerPhaseDash() {
     collectBreachAt(tx1, ty1);
     collectIcarusAt(tx1, ty1);
     collectDecoyAt(tx1, ty1);
+    collectOwlAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -91,6 +92,7 @@ function triggerPhaseDash() {
   collectRecallAt(playerX, playerY);
   onPlayerFlareStep();
   onPlayerDecoyStep();
+  onPlayerOwlStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -126,6 +128,8 @@ function triggerPhaseDash() {
     collectRecallAt(playerX, playerY);
     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
     if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
+    if (collectOwlAt(playerX, playerY)) updateOwlUI();
+    if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
   // Check Minotaur collision
@@ -137,6 +141,7 @@ function triggerPhaseDash() {
       updateBreachUI();
       updateFlareUI();
       updateDecoyUI();
+      updateOwlUI();
       return true;
     }
     gameLost = true;
@@ -149,6 +154,7 @@ function triggerPhaseDash() {
     updateBreachUI();
     updateFlareUI();
     updateDecoyUI();
+    updateOwlUI();
     drawMaze();
     return true;
   }
@@ -173,6 +179,9 @@ function triggerPhaseDash() {
     window.activeDecoy = null;
     updateFlareUI();
     updateDecoyUI();
+    owlStepsRemaining = 0;
+    owlEscapePreview = [];
+    updateOwlUI();
     drawMaze();
 
     return true;
@@ -184,6 +193,7 @@ function triggerPhaseDash() {
   updateBreachUI();
   updateFlareUI();
   updateDecoyUI();
+  updateOwlUI();
   drawMaze();
   return true;
 }
@@ -215,20 +225,11 @@ function collectBreachAt(x, y) {
   updateBreachUI();
   return true;
 }
-
 function triggerChronosRecall() {
   if (gameWon || gameLost || playerRecalls <= 0) return false;
   if (!chronosAnchor) {
     chronosAnchor = { x: playerX, y: playerY };
-    recallFlashUntil = Date.now() + 450;
-    showBannerMessage('Chronos Anchor set! Press B again to warp back.', 'rgba(110,30,160,0.9)');
-    updateRecallUI();
-    drawMaze();
-    return true;
-  }
-  if (chronosAnchor.x === playerX && chronosAnchor.y === playerY) {
-    chronosAnchor = null;
-    showBannerMessage('Chronos Anchor packed up (no charge used).', 'rgba(110,30,160,0.9)');
+    showBannerMessage('Chronos Anchor set! Press B again to recall.', 'rgba(110,30,160,0.9)');
     updateRecallUI();
     drawMaze();
     return true;
@@ -238,33 +239,27 @@ function triggerChronosRecall() {
   playerY = chronosAnchor.y;
   chronosAnchor = null;
   visitedTiles.add(`${playerX},${playerY}`);
-  document.getElementById('uniqueTilesCounter').textContent = 'Unique tiles: ' + visitedTiles.size;
+  const uc = document.getElementById('uniqueTilesCounter');
+  if (uc) uc.textContent = 'Unique Tiles: ' + visitedTiles.size;
   recallFlashUntil = Date.now() + 650;
   minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHRONOS_STUN_MS);
-  if (isDecoyLureActive() && minotaurActive && minotaurX >= 0) {
-    minotaurPath = computePathBetween(minotaurX, minotaurY, activeDecoy.x, activeDecoy.y);
-  } else {
+  if (!isDecoyLureActive()) {
     rebuildMinotaurPursuit();
   }
-  collectSpoolAt(playerX, playerY);
-  collectShieldAt(playerX, playerY);
-  collectDashAt(playerX, playerY);
-  collectRecallAt(playerX, playerY);
-  collectBreachAt(playerX, playerY);
-  collectIcarusAt(playerX, playerY);
-  collectDecoyAt(playerX, playerY);
-  updateSpoolUI();
+  collectOwlAt(playerX, playerY);
+  if (owlStepsRemaining > 0) refreshOwlEscapePreview();
+  showBannerMessage('Chronos Recall! Warped to anchor & Minotaur stunned for 5s!', 'rgba(110,30,160,0.92)');
+  updateRecallUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
-  updateRecallUI();
   updateFlareUI();
   updateDecoyUI();
-  showBannerMessage('Chronos Recall! Warped to anchor & Minotaur time-locked!', 'rgba(130,40,190,0.92)');
+  updateOwlUI();
+  updateSpoolUI();
   drawMaze();
   return true;
 }
-
 function triggerWallBreach() {
   if (gameWon || gameLost || playerBreaches <= 0) return false;
   const tx = playerX + lastMoveDir.dx;
@@ -305,6 +300,7 @@ function triggerWallBreach() {
   collectHermesAt(playerX, playerY);
   onPlayerFlareStep();
   onPlayerDecoyStep();
+  onPlayerOwlStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -330,6 +326,7 @@ function triggerWallBreach() {
   updateSpoolUI();
   updateFlareUI();
   updateDecoyUI();
+  updateOwlUI();
   drawMaze();
   return true;
 }

@@ -166,6 +166,7 @@ function handleMobileMove(direction) {
             }
         }
         onPlayerDecoyStep();
+        onPlayerOwlStep();
 
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
@@ -188,9 +189,6 @@ function handleMobileMove(direction) {
             collectBreachAt(playerX, playerY);
             updateBreachUI();
 
-            // Check if there's a spool at the destination tile
-            if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
-
             // Collect shield at secret passage destination
             collectShieldAt(playerX, playerY);
             updateShieldUI();
@@ -205,6 +203,11 @@ function handleMobileMove(direction) {
 
             if (collectIcarusAt(playerX, playerY)) updateFlareUI();
             collectDecoyAt(playerX, playerY);
+
+            // Collect Owl shrine at current tile
+            collectOwlAt(playerX, playerY);
+            if (owlStepsRemaining > 0) refreshOwlEscapePreview();
+            updateOwlUI();
 
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
@@ -235,6 +238,7 @@ function handleMobileMove(direction) {
                     updateBreachUI();
                     updateFlareUI();
                     updateDecoyUI();
+                    updateOwlUI();
                     return;
                 }
                 gameLost = true;
@@ -245,6 +249,7 @@ function handleMobileMove(direction) {
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
+                updateOwlUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -272,6 +277,7 @@ function handleMobileMove(direction) {
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
+                updateOwlUI();
                 return;
             } else {
                 gameLost = true;
@@ -282,6 +288,7 @@ function handleMobileMove(direction) {
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
+                updateOwlUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -315,6 +322,9 @@ function handleMobileMove(direction) {
             updateBreachUI();
             updateFlareUI();
             updateDecoyUI();
+            owlStepsRemaining = 0;
+            owlEscapePreview = [];
+            updateOwlUI();
             drawMaze();
             return;
         }

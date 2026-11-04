@@ -85,6 +85,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+    const owlBtn = document.getElementById('owlButton');
+    if (owlBtn) {
+        owlBtn.addEventListener('click', function() {
+            triggerOwlClairvoyance();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -170,6 +177,18 @@ let activeDecoy = null;
 window.activeDecoy = activeDecoy;
 let decoyFlashUntil = 0;
 
+let athenaShrines = [];
+window.athenaShrines = athenaShrines;
+let playerOwls = 0;
+const MAX_OWLS = 3;
+const ATHENA_SHRINE_COUNT = 16;
+const OWL_VISION_STEPS = 22;
+const OWL_GLARE_DIST = 10;
+const OWL_GLARE_STUN_MS = 3000;
+let owlStepsRemaining = 0;
+let owlFlashUntil = 0;
+let owlEscapePreview = [];
+
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
 let playerRecalls = 0;
@@ -214,6 +233,7 @@ let _pathParent = null, _pathStamp = null, _pathQueue = null, _pathGen = 0;
 window.triggerSirenDecoy = triggerSirenDecoy;
 window.advanceMinotaurLure = advanceMinotaurLure;
 window.activateThreadCompass = activateThreadCompass;
+window.triggerOwlClairvoyance = triggerOwlClairvoyance;
 // Generate the maze
 let cameraMode = "center";
 const maze = generateMaze(1000, 1000);
