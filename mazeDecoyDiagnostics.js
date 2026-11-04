@@ -527,7 +527,7 @@ window.runOwlSmokeSpec = function() {
     gameLost = false;
     updateOwlUI();
     const stunAct = triggerOwlClairvoyance();
-    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500) {
+    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500 && !!minotaurRadar && minotaurRadar.textContent.startsWith('Minotaur: Stunned')) {
       O5 = true;
     }
   } catch (e) {
@@ -576,7 +576,7 @@ window.runOwlSmokeSpec = function() {
     playerKeys = savedPlayerKeys;
     gameWon = savedGameWon;
     gameLost = savedGameLost;
-    lastMoveDir = savedLastMoveDir;
+    lastMoveDir = savedLastMoveDir ? { dx: savedLastMoveDir.dx, dy: savedLastMoveDir.dy } : null;
 
     // Restore DOM overlay/counter texts
     if (winOverlay) {
