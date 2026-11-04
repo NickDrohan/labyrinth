@@ -430,6 +430,8 @@ window.runOwlSmokeSpec = function() {
 
   try {
     // Reset transient lures
+    gameWon = false;
+    gameLost = false;
     activeDecoy = null;
     window.activeDecoy = null;
     owlStepsRemaining = 0;
