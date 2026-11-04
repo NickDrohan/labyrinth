@@ -107,7 +107,7 @@ function updateBreachUI() {
 }
 
 function formatWinSummary() {
-  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0);
+  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0);
   const score = Math.max(100, 5000 - steps * 2 + visitedTiles.size * 5 + bonusCharges * 150);
   return `You Escaped! Steps: ${steps} | Tiles: ${visitedTiles.size} | Score: ${score}`;
 }
@@ -155,6 +155,19 @@ function updateDecoyUI() {
     b.disabled = Boolean(playerDecoys <= 0 || isDecoyLureActive() || gameWon || gameLost);
   }
 }
+
+function updateOwlUI() {
+  const c = document.getElementById('owlCounter');
+  if (c) {
+    c.textContent = 'Owls: ' + playerOwls + (owlStepsRemaining > 0 ? ' (Sight: ' + owlStepsRemaining + ')' : ' (Off)');
+    c.classList.toggle('active', owlStepsRemaining > 0);
+  }
+  const b = document.getElementById('owlButton');
+  if (b) {
+    b.disabled = Boolean(playerOwls <= 0 || owlStepsRemaining > 0 || gameWon || gameLost);
+  }
+}
+
 function updateSpoolUI() {
   const c = document.getElementById('spoolCounter');
   if (c) c.textContent = 'Spools: ' + playerSpools;
@@ -235,8 +248,8 @@ function drawMaze() {
                         mazeGraphics.endFill();
                     }
 
-                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, chronos anchor, and uncollected Icarus shrines)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(isDecoyLureActive() && activeDecoy.x === mazeX && activeDecoy.y === mazeY)) {
+                    // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, chronos anchor, and uncollected Icarus shrines, and uncollected Athena shrines)
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(isDecoyLureActive() && activeDecoy.x === mazeX && activeDecoy.y === mazeY) && !athenaShrines.some(a => a.x === mazeX && a.y === mazeY)) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -401,6 +414,21 @@ function drawMaze() {
                     mazeGraphics.endFill();
                 }
 
+                // Athena Owl shrines
+                if (athenaShrines.some(a => a.x === mazeX && a.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    mazeGraphics.beginFill(0x2266cc, 0.95);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.38);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0xffdd44, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.2);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0xffffff, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.09);
+                    mazeGraphics.endFill();
+                }
+
                 // Secret passage portals
                 if (secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY)) {
                     mazeGraphics.beginFill(0x8000ff, 0.85);
@@ -554,6 +582,96 @@ function drawMaze() {
     if (Date.now() < decoyFlashUntil) {
         mazeGraphics.lineStyle(6, 0xff66b2, 0.6);
         mazeGraphics.beginFill(0xff66b2, 0.08);
+        mazeGraphics.drawRect(0, 0, visibleWidth * tileSize, visibleHeight * tileSize);
+        mazeGraphics.endFill();
+        mazeGraphics.lineStyle(0);
+    }
+
+    // Athena Owl Tactical Clairvoyance overlay
+    if (owlStepsRemaining > 0 && !gameWon) {
+        // Escape Route Preview (owlEscapePreview)
+        if (Array.isArray(owlEscapePreview) && owlEscapePreview.length > 0) {
+            mazeGraphics.lineStyle(2, 0x00ffff, 0.85);
+            mazeGraphics.moveTo(playerScreenCenterX, playerScreenCenterY);
+            for (const n of owlEscapePreview) {
+                if (n.x >= startX && n.x < startX + visibleWidth && n.y >= startY && n.y < startY + visibleHeight) {
+                    mazeGraphics.lineTo((n.x - startX) * tileSize + tileSize / 2, (n.y - startY) * tileSize + tileSize / 2);
+                }
+            }
+            mazeGraphics.lineStyle(0);
+            for (const n of owlEscapePreview) {
+                if (n.x >= startX && n.x < startX + visibleWidth && n.y >= startY && n.y < startY + visibleHeight) {
+                    mazeGraphics.beginFill(0x00ffff, 0.85);
+                    mazeGraphics.drawCircle((n.x - startX) * tileSize + tileSize / 2, (n.y - startY) * tileSize + tileSize / 2, tileSize * 0.18);
+                    mazeGraphics.endFill();
+                }
+            }
+        }
+
+        // Remote Relic Beacons
+        const baseR = torchActive ? TORCH_RADIUS_BOOSTED : TORCH_RADIUS_NORMAL;
+        const effR = solarFlareStepsRemaining > 0 ? Math.max(baseR, SOLAR_FLARE_RADIUS) : baseR;
+        const relicCandidates = [];
+        if (keys.length > 0) {
+            relicCandidates.push(...keys);
+        }
+        if (aegisShrines.length > 0) {
+            relicCandidates.push(...aegisShrines);
+        }
+        if (hermesShrines.length > 0) {
+            relicCandidates.push(...hermesShrines);
+        }
+        if (chronosShrines.length > 0) {
+            relicCandidates.push(...chronosShrines);
+        }
+        if (daedalusShrines.length > 0) {
+            relicCandidates.push(...daedalusShrines);
+        }
+        if (icarusShrines.length > 0) {
+            relicCandidates.push(...icarusShrines);
+        }
+        if (orpheusShrines.length > 0) {
+            relicCandidates.push(...orpheusShrines);
+        }
+        if (athenaShrines.length > 0) {
+            relicCandidates.push(...athenaShrines);
+        }
+        for (const r of relicCandidates) {
+            if (r.x >= startX && r.x < startX + visibleWidth && r.y >= startY && r.y < startY + visibleHeight) {
+                if (Math.max(Math.abs(r.x - playerX), Math.abs(r.y - playerY)) > effR) {
+                    const rcx = (r.x - startX) * tileSize + tileSize / 2;
+                    const rcy = (r.y - startY) * tileSize + tileSize / 2;
+                    mazeGraphics.lineStyle(2, 0x66b2ff, 0.85);
+                    mazeGraphics.drawCircle(rcx, rcy, tileSize * 0.42);
+                    mazeGraphics.lineStyle(0);
+                }
+            }
+        }
+
+        // Minotaur Tactical Reticle & Trajectory
+        if (minotaurActive && minotaurX >= startX && minotaurX < startX + visibleWidth && minotaurY >= startY && minotaurY < startY + visibleHeight) {
+            const mcx = (minotaurX - startX) * tileSize + tileSize / 2;
+            const mcy = (minotaurY - startY) * tileSize + tileSize / 2;
+            mazeGraphics.lineStyle(2, 0xff3355, 0.9);
+            mazeGraphics.drawCircle(mcx, mcy, tileSize * 0.55);
+            mazeGraphics.lineStyle(0);
+            if (Array.isArray(minotaurPath) && minotaurPath.length > 0) {
+                mazeGraphics.lineStyle(2, 0xff3355, 0.8);
+                const limit = Math.min(8, minotaurPath.length);
+                mazeGraphics.moveTo(mcx, mcy);
+                for (let i = 0; i < limit; i++) {
+                    const p = minotaurPath[i];
+                    mazeGraphics.lineTo((p.x - startX) * tileSize + tileSize / 2, (p.y - startY) * tileSize + tileSize / 2);
+                }
+                mazeGraphics.lineStyle(0);
+            }
+        }
+    }
+
+    // Flash overlay
+    if (Date.now() < owlFlashUntil) {
+        mazeGraphics.lineStyle(6, 0x66b2ff, 0.65);
+        mazeGraphics.beginFill(0x66b2ff, 0.08);
         mazeGraphics.drawRect(0, 0, visibleWidth * tileSize, visibleHeight * tileSize);
         mazeGraphics.endFill();
         mazeGraphics.lineStyle(0);

@@ -115,6 +115,16 @@ function rebuildMinotaurPursuit() {
   minotaurPath = (minotaurActive && minotaurX >= 0 && minotaurY >= 0) ? computePathBetween(minotaurX, minotaurY, playerX, playerY) : [];
 }
 
+function sanitizeMinotaurPath(){
+  if(!minotaurActive||minotaurX<0||minotaurY<0||isDecoyLureActive()) return false;
+  const n=minotaurPath[0]; if(!n) return false;
+  const d=Math.abs(n.x-minotaurX)+Math.abs(n.y-minotaurY);
+  const walk=!!(maze[n.y]&&maze[n.y][n.x]===1);
+  const hop=secretPassages.some(p=>p.fromX===minotaurX&&p.fromY===minotaurY&&p.toX===n.x&&p.toY===n.y);
+  if((d<=1&&walk)||hop) return false;
+  rebuildMinotaurPursuit(); return true;
+}
+
 function shatterSirenDecoy(msg) {
   activeDecoy = null;
   window.activeDecoy = null;
@@ -213,6 +223,7 @@ function advanceMinotaurLure() {
     if (playerShields > 0) {
       triggerAegisRepel(true);
       updateDecoyUI();
+      updateOwlUI();
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
@@ -223,6 +234,7 @@ function advanceMinotaurLure() {
       updateBreachUI();
       updateFlareUI();
       updateDecoyUI();
+      updateOwlUI();
       const lo = document.getElementById('loseOverlay');
       if (lo) lo.style.display = 'flex';
       drawMaze();

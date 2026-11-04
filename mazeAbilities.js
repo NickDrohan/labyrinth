@@ -106,3 +106,54 @@ function onPlayerThreadStep() {
   updateShieldUI();
   updateRecallUI();
 }
+
+function refreshOwlEscapePreview() {
+  if (owlStepsRemaining <= 0 || gameWon || gameLost) {
+    owlEscapePreview = [];
+    return;
+  }
+  const fullRoute = computePathBetween(playerX, playerY, escapeX, escapeY);
+  owlEscapePreview = Array.isArray(fullRoute) ? fullRoute.slice(0, 10) : [];
+}
+
+function collectOwlAt(x, y) {
+  if (playerOwls >= MAX_OWLS) return false;
+  const i = athenaShrines.findIndex(a => a && a.x === x && a.y === y);
+  if (i === -1) return false;
+  athenaShrines.splice(i, 1);
+  playerOwls++;
+  showBannerMessage('Athena Owl acquired! (' + playerOwls + '/' + MAX_OWLS + ')', 'rgba(20,75,160,0.92)');
+  updateOwlUI();
+  return true;
+}
+
+function onPlayerOwlStep() {
+  collectOwlAt(playerX, playerY);
+  if (owlStepsRemaining > 0) {
+    owlStepsRemaining--;
+    if (owlStepsRemaining > 0) {
+      refreshOwlEscapePreview();
+    } else {
+      owlEscapePreview = [];
+    }
+  }
+  updateOwlUI();
+}
+
+function triggerOwlClairvoyance() {
+  if (gameWon || gameLost || playerOwls <= 0 || owlStepsRemaining > 0) return false;
+  playerOwls--;
+  owlStepsRemaining = OWL_VISION_STEPS;
+  owlFlashUntil = Date.now() + 700;
+  refreshOwlEscapePreview();
+  if (minotaurActive && minotaurX >= 0 && minotaurY >= 0 && (Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= OWL_GLARE_DIST)) {
+    minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + OWL_GLARE_STUN_MS);
+    showBannerMessage('Athena Clairvoyance! Escape path revealed & Minotaur dazzled (3s)!', 'rgba(25,90,185,0.92)');
+  } else {
+    showBannerMessage('Athena Clairvoyance! Escape path, Minotaur trail & relics revealed!', 'rgba(25,90,185,0.92)');
+  }
+  updateOwlUI();
+  updateShieldUI();
+  drawMaze();
+  return true;
+}

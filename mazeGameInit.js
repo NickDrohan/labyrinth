@@ -78,6 +78,14 @@ function initGame() {
     window.activeDecoy = null;
     decoyFlashUntil = 0;
 
+    // Reset Athena Owl & Tactical Clairvoyance state
+    athenaShrines.length = 0;
+    window.athenaShrines = athenaShrines;
+    playerOwls = 0;
+    owlStepsRemaining = 0;
+    owlFlashUntil = 0;
+    owlEscapePreview = [];
+
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
@@ -213,6 +221,8 @@ function initGame() {
     updateFlareUI();
     placeOrpheusShrines();
     updateDecoyUI();
+    placeAthenaShrines();
+    updateOwlUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -233,21 +243,22 @@ function initGame() {
         const lure = advanceMinotaurLure();
         if (lure.status !== 'none') {
             if (lure.moved) {
-                stepCount++;
-                steps = stepCount;
-                document.getElementById('stepCounter').textContent = `Steps: ${stepCount}`;
+                steps++;
+                stepCount = steps;
+                document.getElementById('stepCounter').textContent = `Steps: ${steps}`;
             }
             return;
         }
         if (minotaurPath.length === 0 && minotaurActive && !(minotaurX === playerX && minotaurY === playerY)) rebuildMinotaurPursuit();
+        sanitizeMinotaurPath();
         if (minotaurPath.length > 0) {
             const nextPosition = minotaurPath.shift(); // Use shift to move towards the user
             if (nextPosition) {
                 minotaurX = nextPosition.x;
                 minotaurY = nextPosition.y;
-                stepCount++; // Increment step count
-                steps = stepCount;
-                document.getElementById('stepCounter').textContent = `Steps: ${stepCount}`; // Update step counter
+                steps++;
+                stepCount = steps;
+                document.getElementById('stepCounter').textContent = `Steps: ${steps}`; // Update step counter
 
                 // Check for collision with the user
                 if (minotaurX === playerX && minotaurY === playerY) {
@@ -263,6 +274,7 @@ function initGame() {
                     updateBreachUI();
                     updateFlareUI();
                     updateDecoyUI();
+                    updateOwlUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -322,6 +334,13 @@ function initGame() {
         if (event.key === 'g' || event.key === 'G') {
             event.preventDefault();
             triggerSirenDecoy();
+            return;
+        }
+
+        // Athena Owl Clairvoyance hotkey
+        if (event.key === 'v' || event.key === 'V') {
+            event.preventDefault();
+            triggerOwlClairvoyance();
             return;
         }
 
@@ -403,6 +422,7 @@ function initGame() {
                     }
                 }
                 onPlayerDecoyStep();
+                onPlayerOwlStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -456,8 +476,13 @@ function initGame() {
                     collectHermesAt(playerX, playerY);
                     updateDashUI();
 
+                    collectRecallAt(playerX, playerY);
+                    updateRecallUI();
                     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
                     collectDecoyAt(playerX, playerY);
+                    collectOwlAt(playerX, playerY);
+                    if (owlStepsRemaining > 0) refreshOwlEscapePreview();
+                    updateOwlUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -474,6 +499,7 @@ function initGame() {
                             minotaurPath.push({x: playerX, y: playerY});
                         }
                     }
+                    showSecretPassageMessage();
                 }
 
                 // Check if player reached escape tile
@@ -483,7 +509,14 @@ function initGame() {
                     window.activeDecoy = null;
                     updateDecoyUI();
                     solarFlareStepsRemaining = 0;
+                    compassStepsRemaining = 0;
+                    torchActive = false;
+                    torchStepsRemaining = 0;
+                    updateTorchIndicator();
                     updateFlareUI();
+                    owlStepsRemaining = 0;
+                    owlEscapePreview = [];
+                    updateOwlUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -513,6 +546,7 @@ function initGame() {
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();
+                    updateOwlUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) overlay.style.display = 'flex';
                     drawMaze();
