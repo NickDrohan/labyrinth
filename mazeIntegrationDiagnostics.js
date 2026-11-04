@@ -146,6 +146,7 @@ window.runIntegrationSmokeSpec = function() {
   let I4 = false;
   let I5 = false;
   let I6 = false;
+  let I7 = false;
 
   try {
     // Reset minotaur state
@@ -253,64 +254,35 @@ window.runIntegrationSmokeSpec = function() {
 
     // I4: Dash through a wall
     {
-      const startX = savedPlayerX;
-      const startY = savedPlayerY;
-      let found = false;
-      // Search within Manhattan radius 0..15 of (savedPlayerX, savedPlayerY)
-      for (let r = 0; r <= 15 && !found; r++) {
-        for (let dx = -r; dx <= r && !found; dx++) {
+      const dirs4 = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+      const walk = (x, y) => y >= 0 && y < maze.length && x >= 0 && x < maze[0].length && maze[y][x] === 1;
+      const isGate = (x, y) => gates.some(g => g.x === x && g.y === y);
+      let A = null, D = null;
+      for (let r = 0; r <= 15 && !A; r++) {
+        for (let dx = -r; dx <= r && !A; dx++) {
           const dy = r - Math.abs(dx);
-          const A = { x: startX + dx, y: startY + dy };
-          if (A.x >= 0 && A.y >= 0 && A.y < maze.length && A.x < maze[A.y].length && maze[A.y] && maze[A.y][A.x] === 1 && !gates.some(g => g.x === A.x && g.y === A.y)) {
-            // 4-direction d where A+d is an in-bounds wall and A+2d is walkable and not a gate or secret passage
-            const dirs = [
-              { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
-              { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
-            ];
-            for (const d of dirs) {
-              const nx = A.x + d.dx;
-              const ny = A.y + d.dy;
-              if (nx >= 0 && ny >= 0 && ny < maze.length && nx < maze[ny].length && maze[ny] && maze[ny][nx] === 0) {
-                // A+d is wall
-                const nnx = nx + d.dx;
-                const nny = ny + d.dy;
-                if (nnx >= 0 && nny >= 0 && nny < maze.length && nnx < maze[nny].length && maze[nny] && maze[nny][nnx] === 1) {
-                  // A+2d is walkable
-                  // Not a gate or secret passage
-                  if (!gates.some(g => g.x === nnx && g.y === nny) && !secretPassages.some(p => p.fromX === nnx && p.fromY === nny)) {
-                    playerX = A.x;
-                    playerY = A.y;
-                    lastMoveDir = { dx: d.dx, dy: d.dy };
-                    playerDashes = 1;
-                    const Q2 = findPursuer(A.x, A.y);
-                    if (!Q2) {
-                      I4 = 'skipped';
-                      found = true;
-                      break;
-                    }
-                    minotaurActive = true;
-                    minotaurX = Q2.x;
-                    minotaurY = Q2.y;
-                    minotaurPath = computePathBetween(Q2.x, Q2.y, A.x, A.y);
-                    triggerPhaseDash();
-                    I4 = (playerX === A.x + 2 * d.dx && playerY === A.y + 2 * d.dy && walkTrail(80) === true);
-                    found = true;
-                    break;
-                  }
-                }
-              }
-            }
-            if (found) break;
+          for (const oy of (dy === 0 ? [0] : [dy, -dy])) {
+            const ax = savedPlayerX + dx, ay = savedPlayerY + oy;
+            if (!walk(ax, ay) || isGate(ax, ay)) continue;
+            const d = dirs4.find(v => { const wx = ax + v.dx, wy = ay + v.dy, lx = ax + 2 * v.dx, ly = ay + 2 * v.dy;
+              return wy >= 0 && wy < maze.length && wx >= 0 && wx < maze[0].length && maze[wy][wx] === 0 && walk(lx, ly) && !isGate(lx, ly) && !secretPassages.some(p => p.fromX === lx && p.fromY === ly); });
+            if (d) { A = { x: ax, y: ay }; D = d; break; }
           }
-          if (found) break;
         }
-        if (found) break;
       }
-      if (!found) {
-        I4 = 'skipped';
+      if (!A) { I4 = 'skipped'; }
+      else {
+        playerX = A.x; playerY = A.y; lastMoveDir = { dx: D.dx, dy: D.dy }; playerDashes = 1;
+        const Q2 = findPursuer(A.x, A.y);
+        if (!Q2) { I4 = false; consoleErrors.push('I4: no pursuer for A ' + A.x + ',' + A.y); }
+        else {
+          minotaurActive = true; minotaurX = Q2.x; minotaurY = Q2.y;
+          minotaurPath = computePathBetween(Q2.x, Q2.y, A.x, A.y);
+          triggerPhaseDash();
+          I4 = (playerX === A.x + 2 * D.dx && playerY === A.y + 2 * D.dy && walkTrail(80) === true);
+        }
       }
     }
-
     // I5: Recall continuity
     {
       playerX = savedPlayerX;
@@ -324,7 +296,8 @@ window.runIntegrationSmokeSpec = function() {
       }
       const Q = findPursuer(savedPlayerX, savedPlayerY);
       if (!Q) {
-        I5 = 'skipped';
+        I5 = false;
+        consoleErrors.push('I5: no pursuer tile');
       } else {
         minotaurActive = true;
         minotaurX = Q.x;
@@ -335,7 +308,6 @@ window.runIntegrationSmokeSpec = function() {
         I5 = (playerX === savedPlayerX && playerY === savedPlayerY && (minotaurStunnedUntil - Date.now() >= 4500) && walkTrail(80) === true);
       }
     }
-
     // I6: Ability button reachability/disable-on-win
     {
       gameWon = false;
@@ -393,6 +365,27 @@ window.runIntegrationSmokeSpec = function() {
         }
         gameWon = false;
       }
+    }
+
+    // I7: Owl button reachability, disable-on-win, keyboard victory clears Owl Sight
+    {
+      gameWon = false; gameLost = false; playerOwls = 1; owlStepsRemaining = 0; owlEscapePreview = []; updateOwlUI();
+      const ob = document.getElementById('owlButton');
+      const en = !!ob && ob.disabled === false;
+      gameWon = true; updateOwlUI();
+      const dis = !!ob && ob.disabled === true;
+      gameWon = false;
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      let clr = false;
+      if (dir) {
+        playerX = savedPlayerX; playerY = savedPlayerY; escapeX = savedPlayerX + dir.dx; escapeY = savedPlayerY + dir.dy;
+        minotaurActive = false; minotaurX = -1; minotaurY = -1; playerOwls = 0; owlStepsRemaining = 5; updateOwlUI();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        const oc = document.getElementById('owlCounter');
+        clr = gameWon === true && owlStepsRemaining === 0 && owlEscapePreview.length === 0 && !!oc && oc.textContent === 'Owls: 0 (Off)' && !!ob && ob.disabled === true;
+        gameWon = false; if (winOverlay) winOverlay.style.display = 'none'; escapeX = -1; escapeY = -1; playerX = savedPlayerX; playerY = savedPlayerY;
+      }
+      I7 = en && dis && clr;
     }
 
     // @@INTEGRATION_CHECKS_APPEND@@
@@ -499,6 +492,6 @@ window.runIntegrationSmokeSpec = function() {
     // Restore console error handler
     console.error = origConsoleError;
 
-    return { I1, I2, I3, I4, I5, I6, consoleErrors };
+    return { I1, I2, I3, I4, I5, I6, I7, consoleErrors };
   }
 };

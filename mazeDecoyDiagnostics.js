@@ -381,6 +381,12 @@ window.runOwlSmokeSpec = function() {
   const savedPlayerBreaches = playerBreaches;
   const savedLastMoveDir = lastMoveDir ? { dx: lastMoveDir.dx, dy: lastMoveDir.dy } : null;
 
+  const savedPlayerFlares = playerFlares;
+  const savedSolarFlareStepsRemaining = solarFlareStepsRemaining;
+  const savedPlayerKeys = playerKeys;
+  const savedGameWon = gameWon;
+  const savedGameLost = gameLost;
+
   // Snapshot all collections
   const savedVisitedTiles = Array.from(visitedTiles);
   const savedMinotaurPath = minotaurPath.map(n => ({ x: n.x, y: n.y }));
@@ -414,6 +420,10 @@ window.runOwlSmokeSpec = function() {
   const savedStepCounterText = stepCounter ? stepCounter.textContent : null;
   const savedUniqueTilesCounterText = uniqueTilesCounter ? uniqueTilesCounter.textContent : null;
   const savedKeyCounterText = keyCounter ? keyCounter.textContent : null;
+  const savedWinOverlayTextContent = savedWinOverlayText;
+  const savedOwlCounterText = owlCounter ? owlCounter.textContent : null;
+  const savedOwlButtonDisabled = owlButton ? owlButton.disabled : null;
+  const savedMinotaurRadarDisplay = minotaurRadar ? minotaurRadar.style.display : null;
 
   // Initialize flags
   let O1 = false, O2 = false, O3 = false, O4 = false, O5 = false, O6 = false;
@@ -426,117 +436,38 @@ window.runOwlSmokeSpec = function() {
     owlEscapePreview = [];
 
     // O1: Verify Athena Shrine placement
-    if (Array.isArray(athenaShrines) && athenaShrines.length >= 12) {
-      let shrinesWithin35 = 0;
-      athenaShrines.forEach(s => {
-        if (maze && maze[s.y] && maze[s.y][s.x] === 1) {
-          const distToPlayer = Math.abs(s.x - savedPlayerX) + Math.abs(s.y - savedPlayerY);
-          if (distToPlayer <= 35) shrinesWithin35++;
-          const anchors = [
-            {x: savedPlayerX, y: savedPlayerY},
-            {x: savedEscapeX, y: savedEscapeY},
-            ...savedKeys,
-            ...savedGates,
-            ...savedTorchPickups,
-            ...window.secretPassages,
-            ...savedThreadSpools,
-            ...savedAegisShrines,
-            ...savedHermesShrines,
-            ...savedChronosShrines,
-            ...savedDaedalusShrines,
-            ...savedIcarusShrines,
-            ...savedOrpheusShrines
-          ];
-          let tooCloseToAnchor = false;
-          anchors.forEach(a => {
-            const dist = Math.abs(s.x - a.x) + Math.abs(s.y - a.y);
-            if (dist < 5) tooCloseToAnchor = true;
-          });
-          if (!tooCloseToAnchor) {
-            athenaShrines.forEach(o => {
-              if (o !== s) {
-                const dist = Math.abs(s.x - o.x) + Math.abs(s.y - o.y);
-                if (dist < 5) tooCloseToAnchor = true;
-              }
-            });
-          }
-          if (!tooCloseToAnchor) {
-            if (distToPlayer <= 35) shrinesWithin35++;
-          }
-        }
-      });
-      if (athenaShrines.length >= 12 && shrinesWithin35 >= 3) {
-        O1 = true;
-      }
+    {
+      const anchors = [{ x: savedPlayerX, y: savedPlayerY }, { x: savedEscapeX, y: savedEscapeY }, ...savedKeys, ...savedGates, ...savedTorchPickups, ...savedThreadSpools, ...savedAegisShrines, ...savedHermesShrines, ...savedChronosShrines, ...savedDaedalusShrines, ...savedIcarusShrines, ...savedOrpheusShrines];
+      for (const sp of (window.secretPassages || [])) anchors.push({ x: sp.fromX, y: sp.fromY }, { x: sp.toX, y: sp.toY });
+      const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const st = { x: savedPlayerX, y: savedPlayerY };
+      O1 = Array.isArray(athenaShrines) && athenaShrines.length >= 12 && athenaShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) && athenaShrines.filter(s => md(s, st) <= 35).length >= 3 && athenaShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && athenaShrines.every((o, j) => j === i || md(s, o) >= 5));
     }
+
 
     // O2: Test owl pickup and cap
-    minotaurActive = false;
-    minotaurX = -1;
-    minotaurY = -1;
-    escapeX = -1;
-    escapeY = -1;
-    let validDir = null;
-    const checkX = savedPlayerX;
-    const checkY = savedPlayerY;
+    minotaurActive = false; minotaurX = -1; minotaurY = -1; escapeX = -1; escapeY = -1;
     const directions = [
-      {dx: 0, dy: -1, key: 'ArrowUp', opp: 'ArrowDown', oppKey: 'ArrowDown', mobile: 'ArrowUp'},
-      {dx: 0, dy: 1, key: 'ArrowDown', opp: 'ArrowUp', oppKey: 'ArrowUp', mobile: 'ArrowDown'},
-      {dx: -1, dy: 0, key: 'ArrowLeft', opp: 'ArrowRight', oppKey: 'ArrowRight', mobile: 'ArrowLeft'},
-      {dx: 1, dy: 0, key: 'ArrowRight', opp: 'ArrowLeft', oppKey: 'ArrowLeft', mobile: 'ArrowRight'}
-    ];
+      { dx: 0, dy: -1, key: 'ArrowUp', mobile: 'up', opp: 'down', oppKey: 'ArrowDown' },
+      { dx: 0, dy: 1, key: 'ArrowDown', mobile: 'down', opp: 'up', oppKey: 'ArrowUp' },
+      { dx: -1, dy: 0, key: 'ArrowLeft', mobile: 'left', opp: 'right', oppKey: 'ArrowRight' },
+      { dx: 1, dy: 0, key: 'ArrowRight', mobile: 'right', opp: 'left', oppKey: 'ArrowLeft' }];
+    let validDir = null;
     for (const dir of directions) {
-      const nx = checkX + dir.dx;
-      const ny = checkY + dir.dy;
-      if (ny >= 0 && ny < maze.length && Array.isArray(maze[ny]) && nx >= 0 && nx < maze[ny].length && maze[ny][nx] === 1) {
-        const hasGate = savedGates.some(g => g.x === nx && g.y === ny);
-        const hasSecret = window.secretPassages.some(p => p.x === nx && p.y === ny);
-        if (!hasGate && !hasSecret) {
-          // Check for Athena shrine at this position
-          const shrineAtPos = athenaShrines.find(s => s.x === nx && s.y === ny);
-          if (shrineAtPos) {
-            validDir = dir;
-            break;
-          }
-        }
-      }
+      const nx = savedPlayerX + dir.dx, ny = savedPlayerY + dir.dy;
+      if (maze[ny] && maze[ny][nx] === 1 && !gates.some(g => g.x === nx && g.y === ny) && !(window.secretPassages || []).some(p => p.fromX === nx && p.fromY === ny)) { validDir = { ...dir, nx, ny }; break; }
     }
-    if (!validDir) {
-      // Fallback: use first walkable neighbor
-      for (const dir of directions) {
-        const nx = checkX + dir.dx;
-        const ny = checkY + dir.dy;
-        if (ny >= 0 && ny < maze.length && Array.isArray(maze[ny]) && nx >= 0 && nx < maze[ny].length && maze[ny][nx] === 1) {
-          const hasGate = savedGates.some(g => g.x === nx && g.y === ny);
-          const hasSecret = window.secretPassages.some(p => p.x === nx && p.y === ny);
-          if (!hasGate && !hasSecret) {
-            validDir = dir;
-            break;
-          }
-        }
-      }
-    }
-
-    if (validDir) {
-      // Step onto shrine to get first owl
-      playerOwls = 0;
-      updateOwlUI();
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
-      if (playerOwls === 1 && owlCounter && owlCounter.textContent === 'Owls: 1 (Off)' && owlButton.disabled === false) {
-        // Set to max and test cap
-        playerOwls = MAX_OWLS;
-        // Push test shrine at start position
-        athenaShrines.push({x: savedPlayerX, y: savedPlayerY});
-        updateOwlUI();
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.opp }));
-        if (playerOwls === 3) {
-          // Remove test shrine
-          const testIdx = athenaShrines.findIndex(s => s.x === savedPlayerX && s.y === savedPlayerY);
-          if (testIdx !== -1) athenaShrines.splice(testIdx, 1);
-          O2 = true;
-        }
-      }
-    }
+    if (!validDir) throw new Error('O2: no valid neighbor');
+    if (!athenaShrines.some(s => s.x === validDir.nx && s.y === validDir.ny)) athenaShrines.push({ x: validDir.nx, y: validDir.ny });
+    playerX = savedPlayerX; playerY = savedPlayerY; playerOwls = 0; updateOwlUI();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.key }));
+    const o2Pick = playerOwls === 1 && !athenaShrines.some(s => s.x === validDir.nx && s.y === validDir.ny) && !!owlCounter && owlCounter.textContent === 'Owls: 1 (Off)' && !!owlButton && owlButton.disabled === false;
+    playerOwls = MAX_OWLS; athenaShrines.push({ x: savedPlayerX, y: savedPlayerY }); updateOwlUI();
+    handleMobileMove(validDir.opp);
+    const o2Cap = playerOwls === MAX_OWLS && athenaShrines.some(s => s.x === savedPlayerX && s.y === savedPlayerY);
+    const ti = athenaShrines.findIndex(s => s.x === savedPlayerX && s.y === savedPlayerY);
+    if (ti !== -1) athenaShrines.splice(ti, 1);
+    O2 = o2Pick && o2Cap;
 
     // O3 & O6: Test clairvoyance activation and guards
     playerX = savedPlayerX;
@@ -555,60 +486,31 @@ window.runOwlSmokeSpec = function() {
     }
 
     // O6 guards
-    // (a) while owlStepsRemaining > 0, dispatching 'v' and calling triggerOwlClairvoyance() returns false without mutating
-    let o6aPass = false;
-    const tempOwlSteps = owlStepsRemaining;
-    const tempPlayerOwls = playerOwls;
-    const tempMinotaurPathLen = minotaurPath.length;
-    if (owlStepsRemaining > 0) {
+    {
+      const px = playerX, py = playerY, s0 = owlStepsRemaining, ow0 = playerOwls, pl0 = minotaurPath.length;
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
-      if (playerOwls === savedPlayerOwls && owlStepsRemaining === tempOwlSteps && minotaurPath.length === tempMinotaurPathLen && playerX === savedPlayerX && playerY === savedPlayerY) {
-        o6aPass = true;
-      }
-    }
-    // (b) when owlStepsRemaining = 0 and playerOwls = 0
-    if (owlStepsRemaining === 0 && playerOwls === 0) {
-      if (triggerOwlClairvoyance() === false) {
-        // pass
-      }
-    }
-    // (c) when owlStepsRemaining = 0, playerOwls = 1, and gameWon = true
-    if (owlStepsRemaining === 0 && playerOwls === 1 && gameWon === true) {
-      const result = triggerOwlClairvoyance();
-      if (result === false && playerOwls === 1 && owlStepsRemaining === 0) {
-        gameWon = false;
-        O6 = true;
-      }
+      const a = O3 && triggerOwlClairvoyance() === false && playerX === px && playerY === py && owlStepsRemaining === s0 && playerOwls === ow0 && minotaurPath.length === pl0;
+      owlStepsRemaining = 0; owlEscapePreview = []; playerOwls = 0;
+      const b = triggerOwlClairvoyance() === false && playerOwls === 0 && owlStepsRemaining === 0;
+      playerOwls = 1; gameWon = true;
+      const c = triggerOwlClairvoyance() === false && playerOwls === 1 && owlStepsRemaining === 0;
+      gameWon = false; gameLost = true;
+      const d = triggerOwlClairvoyance() === false && playerOwls === 1 && owlStepsRemaining === 0;
+      gameLost = false;
+      O6 = a && b && c && d;
     }
 
+
     // O4: 22-step countdown
-    // Remove any Athena shrines on (savedPlayerX, savedPlayerY) or (validDir.nx, validDir.ny)
-    const shrineAtStart = athenaShrines.find(s => s.x === savedPlayerX && s.y === savedPlayerY);
-    const shrineAtValidDir = athenaShrines.find(s => s.x === validDir.nx && s.y === validDir.ny);
-    if (shrineAtStart) athenaShrines.splice(athenaShrines.indexOf(shrineAtStart), 1);
-    if (shrineAtValidDir) athenaShrines.splice(athenaShrines.indexOf(shrineAtValidDir), 1);
-    playerX = savedPlayerX;
-    playerY = savedPlayerY;
-    escapeX = -1;
-    escapeY = -1;
-    playerOwls = 0;
-    owlStepsRemaining = 22;
-    refreshOwlEscapePreview();
-    updateOwlUI();
-    let validDirMobile = validDir;
+    for (let i = athenaShrines.length - 1; i >= 0; i--) { const s = athenaShrines[i]; if ((s.x === savedPlayerX && s.y === savedPlayerY) || (s.x === validDir.nx && s.y === validDir.ny)) athenaShrines.splice(i, 1); }
+    playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1; minotaurActive = false; minotaurX = -1; minotaurY = -1;
+    playerOwls = 0; owlStepsRemaining = 22; refreshOwlEscapePreview(); updateOwlUI();
+    let o4First = false;
     for (let step = 0; step < 22; step++) {
-      if (step % 2 === 0) {
-        document.dispatchEvent(new Event('mobilemove', { detail: { direction: validDirMobile.mobile } }));
-      } else {
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: validDirMobile.oppKey }));
-      }
-      if (step === 0) {
-        if (owlStepsRemaining !== 21) break;
-      }
+      if (step % 2 === 0) handleMobileMove(validDir.mobile); else document.dispatchEvent(new KeyboardEvent('keydown', { key: validDir.oppKey }));
+      if (step === 0) o4First = owlStepsRemaining === 21;
     }
-    if (owlStepsRemaining === 0 && owlEscapePreview.length === 0 && owlCounter && owlCounter.textContent === 'Owls: 0 (Off)' && !owlCounter.classList.contains('active')) {
-      O4 = true;
-    }
+    O4 = o4First && owlStepsRemaining === 0 && owlEscapePreview.length === 0 && !!owlCounter && owlCounter.textContent === 'Owls: 0 (Off)' && !owlCounter.classList.contains('active');
 
     // O5: Minotaur stun
     playerX = savedPlayerX;
@@ -628,15 +530,23 @@ window.runOwlSmokeSpec = function() {
     if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500) {
       O5 = true;
     }
-  }
-
-  finally {
+  } catch (e) {
+    consoleErrors.push(e && e.message ? e.message : String(e));
+  } finally {
     // Restore all arrays/sets in-place
-    restoreArray(orpheusShrines, savedOrpheusShrines);
-    restoreArray(visitedTiles, savedVisitedTiles);
-    restoreArray(minotaurPath, savedMinotaurPath);
-    restoreArray(athenaShrines, savedAthenaShrines);
-    restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    const restoreArray = (t, s) => { t.length = 0; for (const v of s) t.push(v); };
+    const restoreSet = (t, s) => { t.clear(); for (const v of s) t.add(v); };
+    restoreSet(visitedTiles, savedVisitedTiles);
+    restoreArray(minotaurPath, savedMinotaurPath); restoreArray(orpheusShrines, savedOrpheusShrines);
+    restoreArray(keys, savedKeys); restoreArray(gates, savedGates); restoreArray(torchPickups, savedTorchPickups);
+    restoreArray(threadSpools, savedThreadSpools); restoreArray(aegisShrines, savedAegisShrines);
+    restoreArray(hermesShrines, savedHermesShrines); restoreArray(chronosShrines, savedChronosShrines);
+    restoreArray(daedalusShrines, savedDaedalusShrines); restoreArray(icarusShrines, savedIcarusShrines);
+    restoreArray(athenaShrines, savedAthenaShrines); restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
+    activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
+    window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
+
 
     // Restore scalar globals
     playerX = savedPlayerX;
@@ -675,7 +585,6 @@ window.runOwlSmokeSpec = function() {
     }
     if (loseOverlay) {
       loseOverlay.style.display = savedLoseOverlayDisplay;
-      loseOverlay.textContent = '';
     }
     if (stepCounter) stepCounter.textContent = savedStepCounterText;
     if (uniqueTilesCounter) uniqueTilesCounter.textContent = savedUniqueTilesCounterText;
