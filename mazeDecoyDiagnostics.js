@@ -595,6 +595,7 @@ window.runOwlSmokeSpec = function() {
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
     window.poseidonShrines = poseidonShrines;
+    window.artemisShrines = artemisShrines;
 
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -612,6 +613,9 @@ window.runOwlSmokeSpec = function() {
     owlFlashUntil = savedOwlFlashUntil;
     playerTridents = savedPlayerTridents;
     riptideFlashUntil = savedRiptideFlashUntil;
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;

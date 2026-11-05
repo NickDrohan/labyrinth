@@ -641,6 +641,14 @@ window.runIntegrationSmokeSpec = function() {
     playerTridents = savedPlayerTridents;
     riptideFlashUntil = savedRiptideFlashUntil;
 
+    // Restore Artemis Silver Bow state
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
+    window.artemisShrines = artemisShrines;
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
+
     // Restore DOM elements
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
