@@ -490,21 +490,6 @@ function placeArtemisShrines() {
     }
   }
 
-  // 9. Ring scan d = 6..35 ensuring at least 3 shrines within Manhattan distance <= 35 of (playerX, playerY)
-  for (let d = 6; d <= 35 && nearCount < 3; d++) {
-    for (let dx = -d; dx <= d && nearCount < 3; dx++) {
-      const dy = d - Math.abs(dx);
-      const ys = dy === 0 ? [playerY] : [playerY + dy, playerY - dy];
-      for (const cy of ys) {
-        if (canPlaceAt(playerX + dx, cy)) {
-          artemisShrines.push({ x: playerX + dx, y: cy });
-          nearCount++;
-        }
-        if (nearCount >= 3) break;
-      }
-    }
-  }
-
   // 10. tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 8, 160, 25000)
   tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 8, 160, 25000);
 

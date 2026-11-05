@@ -160,6 +160,8 @@ window.runIntegrationSmokeSpec = function() {
   let I8 = false;
   let I9 = false;
 
+  let I10 = false;
+
   try {
     // Reset minotaur state
     minotaurActive = false;
@@ -555,6 +557,43 @@ window.runIntegrationSmokeSpec = function() {
       I9 = placementOk && btnOk && scoreOk && arrowOk;
     }
 
+    // I10: Artemis input loop (keyboard X + Sight countdown via keyboard/mobile, walking pickup + cap, keyboard win reset)
+    {
+      let kbOk = false, mobOk = false, pickOk = false, winOk = false;
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      const ab = document.getElementById('arrowButton');
+      if (dir) {
+        playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1;
+        gameWon = false; gameLost = false; minotaurActive = false; minotaurX = -1; minotaurY = -1;
+        activeDecoy = null; window.activeDecoy = null;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerArrows = 1; arrowVisionStepsRemaining = 0; arrowTrail = [];
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+        kbOk = playerArrows === 0 && arrowVisionStepsRemaining === 10 && playerX === savedPlayerX && playerY === savedPlayerY;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        const afterKey = arrowVisionStepsRemaining;
+        handleMobileMove(dir.opp);
+        mobOk = afterKey === 9 && arrowVisionStepsRemaining === 8 && playerX === savedPlayerX && playerY === savedPlayerY;
+        arrowVisionStepsRemaining = 0; arrowTrail = [];
+        const tx = savedPlayerX + dir.dx, ty = savedPlayerY + dir.dy;
+        if (!artemisShrines.some(a => a.x === tx && a.y === ty)) artemisShrines.push({ x: tx, y: ty });
+        playerArrows = 0;
+        handleMobileMove(dir.mobile);
+        const got = playerArrows === 1 && !artemisShrines.some(a => a.x === tx && a.y === ty) && !!ab && ab.disabled === false;
+        playerArrows = MAX_ARROWS; artemisShrines.push({ x: savedPlayerX, y: savedPlayerY });
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.oppKey }));
+        const capped = playerArrows === MAX_ARROWS && artemisShrines.some(a => a.x === savedPlayerX && a.y === savedPlayerY);
+        pickOk = got && capped;
+        playerX = savedPlayerX; playerY = savedPlayerY; escapeX = tx; escapeY = ty;
+        playerArrows = 1; arrowVisionStepsRemaining = 3; arrowTrail = [{ x: savedPlayerX, y: savedPlayerY }];
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        winOk = gameWon === true && arrowVisionStepsRemaining === 0 && arrowTrail.length === 0 && !!ab && ab.disabled === true;
+        gameWon = false; if (winOverlay) winOverlay.style.display = 'none';
+        escapeX = -1; escapeY = -1; playerX = savedPlayerX; playerY = savedPlayerY;
+      }
+      I10 = kbOk && mobOk && pickOk && winOk;
+    }
+
     // @@INTEGRATION_CHECKS_APPEND@@
   } catch (e) {
 
@@ -675,5 +714,5 @@ window.runIntegrationSmokeSpec = function() {
     console.error = origConsoleError;
   }
 
-  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, consoleErrors };
+  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, consoleErrors };
 };
