@@ -56,7 +56,12 @@ function pushMinotaurBack(steps) {
       break;
     }
   }
+
+  if (!isDecoyLureActive()) {
+    rebuildMinotaurPursuit();
+  }
 }
+
 
 function computePathBetween(sx, sy, tx, ty) {
   if (!Array.isArray(maze) || maze.length === 0) return [];

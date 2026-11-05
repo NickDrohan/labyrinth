@@ -430,6 +430,8 @@ window.runOwlSmokeSpec = function() {
 
   try {
     // Reset transient lures
+    gameWon = false;
+    gameLost = false;
     activeDecoy = null;
     window.activeDecoy = null;
     owlStepsRemaining = 0;
@@ -443,7 +445,6 @@ window.runOwlSmokeSpec = function() {
       const st = { x: savedPlayerX, y: savedPlayerY };
       O1 = Array.isArray(athenaShrines) && athenaShrines.length >= 12 && athenaShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) && athenaShrines.filter(s => md(s, st) <= 35).length >= 3 && athenaShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && athenaShrines.every((o, j) => j === i || md(s, o) >= 5));
     }
-
 
     // O2: Test owl pickup and cap
     minotaurActive = false; minotaurX = -1; minotaurY = -1; escapeX = -1; escapeY = -1;
@@ -500,7 +501,6 @@ window.runOwlSmokeSpec = function() {
       O6 = a && b && c && d;
     }
 
-
     // O4: 22-step countdown
     for (let i = athenaShrines.length - 1; i >= 0; i--) { const s = athenaShrines[i]; if ((s.x === savedPlayerX && s.y === savedPlayerY) || (s.x === validDir.nx && s.y === validDir.ny)) athenaShrines.splice(i, 1); }
     playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1; minotaurActive = false; minotaurX = -1; minotaurY = -1;
@@ -527,7 +527,7 @@ window.runOwlSmokeSpec = function() {
     gameLost = false;
     updateOwlUI();
     const stunAct = triggerOwlClairvoyance();
-    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500) {
+    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500 && !!minotaurRadar && minotaurRadar.textContent.startsWith('Minotaur: Stunned')) {
       O5 = true;
     }
   } catch (e) {
@@ -547,12 +547,11 @@ window.runOwlSmokeSpec = function() {
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
 
-
-    // Restore scalar globals
     playerX = savedPlayerX;
     playerY = savedPlayerY;
     escapeX = savedEscapeX;
     escapeY = savedEscapeY;
+
     minotaurActive = savedMinotaurActive;
     minotaurX = savedMinotaurX;
     minotaurY = savedMinotaurY;
@@ -576,7 +575,7 @@ window.runOwlSmokeSpec = function() {
     playerKeys = savedPlayerKeys;
     gameWon = savedGameWon;
     gameLost = savedGameLost;
-    lastMoveDir = savedLastMoveDir;
+    lastMoveDir = savedLastMoveDir ? { dx: savedLastMoveDir.dx, dy: savedLastMoveDir.dy } : null;
 
     // Restore DOM overlay/counter texts
     if (winOverlay) {
