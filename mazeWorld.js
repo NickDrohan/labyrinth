@@ -84,6 +84,15 @@ function getForbiddenTiles() {
   if (Array.isArray(athenaShrines)) {
     for (const a of athenaShrines) forbidden.add(`${a.x},${a.y}`);
   }
+  if (Array.isArray(poseidonShrines)) {
+    for (const p of poseidonShrines) forbidden.add(`${p.x},${p.y}`);
+  }
+  if (Array.isArray(artemisShrines)) {
+    for (const a of artemisShrines) forbidden.add(`${a.x},${a.y}`);
+  }
+  if (Array.isArray(apolloShrines)) {
+    for (const ap of apolloShrines) forbidden.add(`${ap.x},${ap.y}`);
+  }
   if (activeDecoy) {
     forbidden.add(`${activeDecoy.x},${activeDecoy.y}`);
   }

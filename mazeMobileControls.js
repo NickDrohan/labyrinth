@@ -93,6 +93,9 @@ function handleMobileMove(direction) {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
+        updateArrowUI();
+        updateChariotUI();
     }
 
     // Check if the new position is a gate
@@ -168,6 +171,12 @@ function handleMobileMove(direction) {
         onPlayerDecoyStep();
         onPlayerOwlStep();
 
+        // Collect Poseidon trident at new position
+        collectTridentAt(playerX, playerY);
+        updateTridentUI();
+        onPlayerArrowStep();
+        onPlayerChariotStep();
+
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
         if (passageIdx !== -1) {
@@ -209,6 +218,14 @@ function handleMobileMove(direction) {
             if (owlStepsRemaining > 0) refreshOwlEscapePreview();
             updateOwlUI();
 
+            // Collect Poseidon trident at secret passage destination
+            collectTridentAt(playerX, playerY);
+            updateTridentUI();
+            collectArrowAt(playerX, playerY);
+            updateArrowUI();
+            collectChariotAt(playerX, playerY);
+            updateChariotUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -239,17 +256,28 @@ function handleMobileMove(direction) {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
+                    updateArrowUI();
+                    updateChariotUI();
                     return;
                 }
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
                 updateRecallUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateChariotUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -278,9 +306,16 @@ function handleMobileMove(direction) {
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
+                updateChariotUI();
                 return;
             } else {
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
@@ -289,6 +324,9 @@ function handleMobileMove(direction) {
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
+                updateChariotUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -325,6 +363,13 @@ function handleMobileMove(direction) {
             owlStepsRemaining = 0;
             owlEscapePreview = [];
             updateOwlUI();
+            updateTridentUI();
+            arrowVisionStepsRemaining = 0;
+            arrowTrail = [];
+            chariotTrailStepsRemaining = 0;
+            chariotTrail = [];
+            updateArrowUI();
+            updateChariotUI();
             drawMaze();
             return;
         }
