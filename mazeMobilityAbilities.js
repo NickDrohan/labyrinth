@@ -153,6 +153,8 @@ function triggerPhaseDash() {
       return true;
     }
     gameLost = true;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
     const lo = document.getElementById('loseOverlay');
     if (lo) lo.style.display = 'flex';
     updateSpoolUI();

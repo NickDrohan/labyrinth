@@ -594,7 +594,6 @@ window.runIntegrationSmokeSpec = function() {
       I10 = kbOk && mobOk && pickOk && winOk;
     }
 
-    // @@INTEGRATION_CHECKS_APPEND@@
   } catch (e) {
 
     consoleErrors.push(e && e.message ? e.message : String(e));

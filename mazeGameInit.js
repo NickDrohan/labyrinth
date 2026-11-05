@@ -296,6 +296,8 @@ function initGame() {
                         return;
                     }
                     gameLost = true;
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
@@ -596,6 +598,8 @@ function initGame() {
                         return;
                     }
                     gameLost = true;
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();

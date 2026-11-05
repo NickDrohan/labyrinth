@@ -257,6 +257,8 @@ function handleMobileMove(direction) {
                     return;
                 }
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
@@ -301,6 +303,8 @@ function handleMobileMove(direction) {
                 return;
             } else {
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();

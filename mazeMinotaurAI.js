@@ -234,6 +234,8 @@ function advanceMinotaurLure() {
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
+      arrowVisionStepsRemaining = 0;
+      arrowTrail = [];
       updateSpoolUI();
       updateShieldUI();
       updateDashUI();
