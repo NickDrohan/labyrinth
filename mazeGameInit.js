@@ -86,6 +86,31 @@ function initGame() {
     owlFlashUntil = 0;
     owlEscapePreview = [];
 
+    // Reset Poseidon Trident & Riptide Surge state
+    poseidonShrines.length = 0;
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = 0;
+    riptideTrail = [];
+    riptideFlashUntil = 0;
+
+    // Reset Artemis Silver Bow & Piercing Silver Arrow state
+    artemisShrines.length = 0;
+    window.artemisShrines = artemisShrines;
+    playerArrows = 0;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    arrowFlashUntil = 0;
+
+    // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
+    playerX = 25;
+    playerY = 25;
+    maze[playerY][playerX] = 1;
+    maze[playerY][playerX + 1] = 1;
+    maze[playerY - 1][playerX] = 1;
+    visitedTiles.clear();
+    visitedTiles.add(`${playerX},${playerY}`);
+    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
+
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
@@ -223,6 +248,10 @@ function initGame() {
     updateDecoyUI();
     placeAthenaShrines();
     updateOwlUI();
+    placePoseidonShrines();
+    updateTridentUI();
+    placeArtemisShrines();
+    updateArrowUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -275,6 +304,8 @@ function initGame() {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
+                    updateArrowUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -344,6 +375,20 @@ function initGame() {
             return;
         }
 
+        // Poseidon Riptide Surge hotkey
+        if (event.key === 'c' || event.key === 'C') {
+            event.preventDefault();
+            triggerRiptideSurge();
+            return;
+        }
+
+        // Artemis Silver Arrow hotkey
+        if (event.key === 'x' || event.key === 'X') {
+            event.preventDefault();
+            triggerSilverArrow();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -376,6 +421,8 @@ function initGame() {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
+        updateArrowUI();
 
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
@@ -423,6 +470,9 @@ function initGame() {
                 }
                 onPlayerDecoyStep();
                 onPlayerOwlStep();
+                collectTridentAt(playerX, playerY);
+                updateTridentUI();
+                onPlayerArrowStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -483,6 +533,10 @@ function initGame() {
                     collectOwlAt(playerX, playerY);
                     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
                     updateOwlUI();
+                    collectTridentAt(playerX, playerY);
+                    updateTridentUI();
+                    collectArrowAt(playerX, playerY);
+                    updateArrowUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -517,6 +571,10 @@ function initGame() {
                     owlStepsRemaining = 0;
                     owlEscapePreview = [];
                     updateOwlUI();
+                    updateTridentUI();
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
+                    updateArrowUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -543,6 +601,8 @@ function initGame() {
                     updateDashUI();
                     updateRecallUI();
                     updateBreachUI();
+                    updateTridentUI();
+                    updateArrowUI();
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();

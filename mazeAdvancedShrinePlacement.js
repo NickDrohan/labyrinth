@@ -315,3 +315,196 @@ function placeAthenaShrines() {
   // 11. Assign to window
   window.athenaShrines = athenaShrines;
 }
+
+function placePoseidonShrines() {
+  // 1. Clear poseidonShrines and assign to window
+  poseidonShrines.length = 0;
+  window.poseidonShrines = poseidonShrines;
+
+  // 2. Build anchors array
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+
+  function pushKeys(arr) {
+    if (Array.isArray(arr)) arr.forEach(p => { anchors.push({ x: p.x, y: p.y }); });
+  }
+
+  pushKeys(keys);
+  pushKeys(gates);
+  pushKeys(torchPickups);
+  if (secretPassages) {
+    secretPassages.forEach(p => { anchors.push({ x: p.fromX, y: p.fromY }); anchors.push({ x: p.toX, y: p.toY }); });
+  }
+  pushKeys(threadSpools);
+  pushKeys(aegisShrines);
+  pushKeys(hermesShrines);
+  pushKeys(chronosShrines);
+  pushKeys(daedalusShrines);
+  pushKeys(icarusShrines);
+  pushKeys(orpheusShrines);
+  pushKeys(athenaShrines);
+
+  // 3. Define H and W
+  const H = maze.length;
+  const W = maze[0].length;
+
+  // 4. Define far(x, y, list)
+  function far(x, y, list) {
+    return list.every(a => Math.abs(x - a.x) + Math.abs(y - a.y) >= 5);
+  }
+
+  // 5. Define canPlaceAt(x, y)
+  function canPlaceAt(x, y) {
+    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, poseidonShrines);
+  }
+
+  // 6. Define tryPlacePoseidon(targetCount, minR, maxR, maxAttempts)
+  function tryPlacePoseidon(targetCount, minR, maxR, maxAttempts) {
+    for (let attempts = 0; attempts < maxAttempts && poseidonShrines.length < targetCount; attempts++) {
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      if (canPlaceAt(playerX + dx, playerY + dy)) {
+        poseidonShrines.push({ x: playerX + dx, y: playerY + dy });
+      }
+    }
+  }
+
+  // 7. Call tryPlacePoseidon(5, 6, 35, 6000)
+  tryPlacePoseidon(5, 6, 35, 6000);
+
+  // 8. Count near shrines and deterministic ring scan
+  let nearCount = poseidonShrines.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 35).length;
+  if (nearCount < 3) {
+    for (let d = 6; d <= 35 && nearCount < 3; d++) {
+      for (let dx = -d; dx <= d && nearCount < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        const ys = dy === 0 ? [playerY] : [playerY + dy, playerY - dy];
+        for (const cy of ys) {
+          if (canPlaceAt(playerX + dx, cy)) {
+            poseidonShrines.push({ x: playerX + dx, y: cy });
+            nearCount++;
+          }
+          if (nearCount >= 3) break;
+        }
+      }
+    }
+  }
+
+  // 9. Call tryPlacePoseidon(POSEIDON_SHRINE_COUNT, 8, 160, 25000) and (5, W + H, 50000)
+  tryPlacePoseidon(POSEIDON_SHRINE_COUNT, 8, 160, 25000);
+  tryPlacePoseidon(POSEIDON_SHRINE_COUNT, 5, W + H, 50000);
+
+  // 10. Row-major fallback for at least 12 shrines
+  if (poseidonShrines.length < 12) {
+    for (let y = 0; y < H && poseidonShrines.length < 12; y++) {
+      for (let x = 0; x < W && poseidonShrines.length < 12; x++) {
+        if (canPlaceAt(x, y)) poseidonShrines.push({ x, y });
+      }
+    }
+  }
+
+  // 11. Assign to window
+  window.poseidonShrines = poseidonShrines;
+}
+
+function placeArtemisShrines() {
+  // 1. Clear artemisShrines and assign to window
+  artemisShrines.length = 0;
+  window.artemisShrines = artemisShrines;
+
+  // 2. Build anchors array
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+
+  function pushKeys(arr) {
+    if (Array.isArray(arr)) arr.forEach(p => { anchors.push({ x: p.x, y: p.y }); });
+  }
+
+  pushKeys(keys);
+  pushKeys(gates);
+  pushKeys(torchPickups);
+  if (secretPassages) {
+    secretPassages.forEach(p => { anchors.push({ x: p.fromX, y: p.fromY }); anchors.push({ x: p.toX, y: p.toY }); });
+  }
+  pushKeys(threadSpools);
+  pushKeys(aegisShrines);
+  pushKeys(hermesShrines);
+  pushKeys(chronosShrines);
+  pushKeys(daedalusShrines);
+  pushKeys(icarusShrines);
+  pushKeys(orpheusShrines);
+  pushKeys(athenaShrines);
+  pushKeys(poseidonShrines);
+
+  // 3. Define H and W
+  const H = maze.length;
+  const W = maze[0].length;
+
+  // 4. Define far(x, y, list)
+  function far(x, y, list) {
+    return list.every(a => Math.abs(x - a.x) + Math.abs(y - a.y) >= 5);
+  }
+
+  // 5. Define canPlaceAt(x, y)
+  function canPlaceAt(x, y) {
+    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, artemisShrines);
+  }
+
+  // 6. Define tryPlaceArtemis(targetCount, minR, maxR, maxAttempts)
+  function tryPlaceArtemis(targetCount, minR, maxR, maxAttempts) {
+    for (let attempts = 0; attempts < maxAttempts && artemisShrines.length < targetCount; attempts++) {
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      if (canPlaceAt(playerX + dx, playerY + dy)) {
+        artemisShrines.push({ x: playerX + dx, y: playerY + dy });
+      }
+    }
+  }
+
+  // 7. Call tryPlaceArtemis(5, 6, 35, 6000)
+  tryPlaceArtemis(5, 6, 35, 6000);
+
+  // 8. Count near shrines and deterministic ring scan
+  let nearCount = artemisShrines.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 35).length;
+  if (nearCount < 3) {
+    for (let d = 6; d <= 35 && nearCount < 3; d++) {
+      for (let dx = -d; dx <= d && nearCount < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        const ys = dy === 0 ? [playerY] : [playerY + dy, playerY - dy];
+        for (const cy of ys) {
+          if (canPlaceAt(playerX + dx, cy)) {
+            artemisShrines.push({ x: playerX + dx, y: cy });
+            nearCount++;
+          }
+          if (nearCount >= 3) break;
+        }
+      }
+    }
+  }
+
+  // 10. tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 8, 160, 25000)
+  tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 8, 160, 25000);
+
+  // 11. tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 5, W + H, 50000)
+  tryPlaceArtemis(ARTEMIS_SHRINE_COUNT, 5, W + H, 50000);
+
+  // 12. Row-major fallback ensuring artemisShrines.length >= 12
+  if (artemisShrines.length < 12) {
+    for (let y = 0; y < H && artemisShrines.length < 12; y++) {
+      for (let x = 0; x < W && artemisShrines.length < 12; x++) {
+        if (canPlaceAt(x, y)) artemisShrines.push({ x, y });
+      }
+    }
+  }
+
+  // 13. Assign to window
+  window.artemisShrines = artemisShrines;
+}

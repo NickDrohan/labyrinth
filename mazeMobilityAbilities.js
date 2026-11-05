@@ -53,6 +53,8 @@ function triggerPhaseDash() {
     collectIcarusAt(tx1, ty1);
     collectDecoyAt(tx1, ty1);
     collectOwlAt(tx1, ty1);
+    collectTridentAt(tx1, ty1);
+    collectArrowAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -93,6 +95,8 @@ function triggerPhaseDash() {
   onPlayerFlareStep();
   onPlayerDecoyStep();
   onPlayerOwlStep();
+  collectTridentAt(playerX, playerY);
+  onPlayerArrowStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -129,6 +133,8 @@ function triggerPhaseDash() {
     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
     if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
     if (collectOwlAt(playerX, playerY)) updateOwlUI();
+    if (collectTridentAt(playerX, playerY)) updateTridentUI();
+    if (collectArrowAt(playerX, playerY)) updateArrowUI();
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
@@ -142,6 +148,8 @@ function triggerPhaseDash() {
       updateFlareUI();
       updateDecoyUI();
       updateOwlUI();
+      updateTridentUI();
+      updateArrowUI();
       return true;
     }
     gameLost = true;
@@ -155,6 +163,8 @@ function triggerPhaseDash() {
     updateFlareUI();
     updateDecoyUI();
     updateOwlUI();
+    updateTridentUI();
+    updateArrowUI();
     drawMaze();
     return true;
   }
@@ -182,6 +192,10 @@ function triggerPhaseDash() {
     owlStepsRemaining = 0;
     owlEscapePreview = [];
     updateOwlUI();
+    updateTridentUI();
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    updateArrowUI();
     drawMaze();
 
     return true;
@@ -194,6 +208,8 @@ function triggerPhaseDash() {
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
+  updateArrowUI();
   drawMaze();
   return true;
 }
@@ -249,13 +265,17 @@ function triggerChronosRecall() {
   collectOwlAt(playerX, playerY);
   if (owlStepsRemaining > 0) refreshOwlEscapePreview();
   showBannerMessage('Chronos Recall! Warped to anchor & Minotaur stunned for 5s!', 'rgba(110,30,160,0.92)');
+  collectTridentAt(playerX, playerY);
+  collectArrowAt(playerX, playerY);
   updateRecallUI();
+  updateArrowUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
   updateSpoolUI();
   drawMaze();
   return true;
@@ -301,6 +321,7 @@ function triggerWallBreach() {
   onPlayerFlareStep();
   onPlayerDecoyStep();
   onPlayerOwlStep();
+  onPlayerArrowStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -319,6 +340,7 @@ function triggerWallBreach() {
     bannerMsg = 'Wall breached! Shortcut carved!';
   }
   showBannerMessage(bannerMsg, 'rgba(180,50,20,0.92)');
+  collectTridentAt(playerX, playerY);
   updateBreachUI();
   updateDashUI();
   updateShieldUI();
@@ -327,6 +349,8 @@ function triggerWallBreach() {
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
+  updateArrowUI();
   drawMaze();
   return true;
 }

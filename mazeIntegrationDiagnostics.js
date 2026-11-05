@@ -58,6 +58,17 @@ window.runIntegrationSmokeSpec = function() {
   const savedDashTrail = [...dashTrail];
   const savedDashTrailUntil = dashTrailUntil;
 
+  const savedPlayerArrows = playerArrows;
+  const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+  const savedArrowFlashUntil = arrowFlashUntil;
+  const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+  const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
+
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
+
   // DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -138,7 +149,6 @@ window.runIntegrationSmokeSpec = function() {
     }
     return true;
   }
-
   // Flags
   let I1 = false;
   let I2 = false;
@@ -147,6 +157,10 @@ window.runIntegrationSmokeSpec = function() {
   let I5 = false;
   let I6 = false;
   let I7 = false;
+  let I8 = false;
+  let I9 = false;
+
+  let I10 = false;
 
   try {
     // Reset minotaur state
@@ -157,6 +171,9 @@ window.runIntegrationSmokeSpec = function() {
     window.activeDecoy = null;
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
 
     // I1: Keyboard victory
     {
@@ -388,11 +405,200 @@ window.runIntegrationSmokeSpec = function() {
       I7 = en && dis && clr;
     }
 
+    // I8: Poseidon shrine invariants, Riptide Surge movement + Minotaur pushback/stun, button disable on win, and score bonus
+    {
+      const anchors = [
+        { x: savedPlayerX, y: savedPlayerY },
+        { x: savedEscapeX, y: savedEscapeY },
+        ...savedKeys, ...savedGates, ...savedTorchPickups, ...savedThreadSpools,
+        ...savedAegisShrines, ...savedHermesShrines, ...savedChronosShrines,
+        ...savedDaedalusShrines, ...savedIcarusShrines, ...savedOrpheusShrines, ...savedAthenaShrines
+      ];
+      for (const sp of (window.secretPassages || [])) {
+        anchors.push({ x: sp.fromX, y: sp.fromY }, { x: sp.toX, y: sp.toY });
+      }
+      const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const st = { x: savedPlayerX, y: savedPlayerY };
+      const placementOk = Array.isArray(poseidonShrines) &&
+        poseidonShrines.length >= 12 &&
+        poseidonShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) &&
+        poseidonShrines.filter(s => md(s, st) <= 35).length >= 3 &&
+        poseidonShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && poseidonShrines.every((o, j) => j === i || md(s, o) >= 5));
+
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      let surgeOk = false;
+      let btnOk = false;
+      let scoreOk = false;
+      if (dir) {
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = -1;
+        escapeY = -1;
+        gameWon = false;
+        gameLost = false;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerTridents = 1;
+        updateTridentUI();
+        const tb = document.getElementById('tridentButton');
+        const en = !!tb && tb.disabled === false;
+        gameWon = true;
+        updateTridentUI();
+        const dis = !!tb && tb.disabled === true;
+        gameWon = false;
+        updateTridentUI();
+        btnOk = en && dis;
+
+        playerTridents = 0;
+        const s0 = formatWinSummary();
+        playerTridents = 2;
+        const s2 = formatWinSummary();
+        const m0 = s0.match(/Score:\s*(\d+)/);
+        const m2 = s2.match(/Score:\s*(\d+)/);
+        scoreOk = !!(m0 && m2 && (Number(m2[1]) - Number(m0[1]) === 300));
+
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        minotaurActive = true;
+        minotaurX = savedPlayerX + dir.dx;
+        minotaurY = savedPlayerY + dir.dy;
+        minotaurStunnedUntil = 0;
+        minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
+        playerTridents = 1;
+        const stepsBefore = steps;
+        const surged = triggerRiptideSurge();
+        surgeOk = surged === true &&
+          playerTridents === 0 &&
+          steps === stepsBefore + 1 &&
+          (playerX !== savedPlayerX || playerY !== savedPlayerY) &&
+          Array.isArray(riptideTrail) && riptideTrail.length >= 2 &&
+          minotaurStunnedUntil > Date.now() + 3000;
+      }
+      I8 = placementOk && btnOk && scoreOk && surgeOk;
+    }
+
+    // I9: Artemis shrine invariants, Silver Arrow piercing + vision + pickup + Minotaur pin/stun, button disable on win, and score bonus
+    {
+      const anchors = [
+        { x: savedPlayerX, y: savedPlayerY },
+        { x: savedEscapeX, y: savedEscapeY },
+        ...savedKeys, ...savedGates, ...savedTorchPickups, ...savedThreadSpools,
+        ...savedAegisShrines, ...savedHermesShrines, ...savedChronosShrines,
+        ...savedDaedalusShrines, ...savedIcarusShrines, ...savedOrpheusShrines,
+        ...savedAthenaShrines, ...savedPoseidonShrines
+      ];
+      for (const sp of (window.secretPassages || [])) {
+        anchors.push({ x: sp.fromX, y: sp.fromY }, { x: sp.toX, y: sp.toY });
+      }
+      const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const st = { x: savedPlayerX, y: savedPlayerY };
+      const placementOk = Array.isArray(artemisShrines) &&
+        artemisShrines.length >= 12 &&
+        artemisShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) &&
+        artemisShrines.filter(s => md(s, st) <= 35).length >= 3 &&
+        artemisShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && artemisShrines.every((o, j) => j === i || md(s, o) >= 5));
+
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      let arrowOk = false;
+      let btnOk = false;
+      let scoreOk = false;
+      if (dir) {
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = -1;
+        escapeY = -1;
+        gameWon = false;
+        gameLost = false;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerArrows = 1;
+        arrowVisionStepsRemaining = 0;
+        arrowTrail = [];
+        updateArrowUI();
+        const ab = document.getElementById('arrowButton');
+        const en = !!ab && ab.disabled === false;
+        gameWon = true;
+        updateArrowUI();
+        const dis = !!ab && ab.disabled === true;
+        gameWon = false;
+        updateArrowUI();
+        btnOk = en && dis;
+
+        playerArrows = 0;
+        const s0 = formatWinSummary();
+        playerArrows = 2;
+        const s2 = formatWinSummary();
+        const m0 = s0.match(/Score:\s*(\d+)/);
+        const m2 = s2.match(/Score:\s*(\d+)/);
+        scoreOk = !!(m0 && m2 && (Number(m2[1]) - Number(m0[1]) === 300));
+
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        minotaurActive = true;
+        minotaurX = savedPlayerX + dir.dx;
+        minotaurY = savedPlayerY + dir.dy;
+        minotaurStunnedUntil = 0;
+        minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
+        const kx = savedPlayerX + dir.dx;
+        const ky = savedPlayerY + dir.dy;
+        if (!keys.some(k => k.x === kx && k.y === ky)) {
+          keys.push({ x: kx, y: ky });
+        }
+        const keysBefore = playerKeys;
+        playerArrows = 1;
+        const fired = triggerSilverArrow();
+        arrowOk = fired === true &&
+          playerArrows === 0 &&
+          arrowVisionStepsRemaining === 10 &&
+          playerX === savedPlayerX && playerY === savedPlayerY &&
+          Array.isArray(arrowTrail) && arrowTrail.length >= 2 &&
+          visitedTiles.has(`${savedPlayerX + dir.dx},${savedPlayerY + dir.dy}`) &&
+          playerKeys === keysBefore + 1 &&
+          minotaurStunnedUntil > Date.now() + 4500;
+      }
+      I9 = placementOk && btnOk && scoreOk && arrowOk;
+    }
+
+    // I10: Artemis input loop (keyboard X + Sight countdown via keyboard/mobile, walking pickup + cap, keyboard win reset)
+    {
+      let kbOk = false, mobOk = false, pickOk = false, winOk = false;
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      const ab = document.getElementById('arrowButton');
+      if (dir) {
+        playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1;
+        gameWon = false; gameLost = false; minotaurActive = false; minotaurX = -1; minotaurY = -1;
+        activeDecoy = null; window.activeDecoy = null;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerArrows = 1; arrowVisionStepsRemaining = 0; arrowTrail = [];
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
+        kbOk = playerArrows === 0 && arrowVisionStepsRemaining === 10 && playerX === savedPlayerX && playerY === savedPlayerY;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        const afterKey = arrowVisionStepsRemaining;
+        handleMobileMove(dir.opp);
+        mobOk = afterKey === 9 && arrowVisionStepsRemaining === 8 && playerX === savedPlayerX && playerY === savedPlayerY;
+        arrowVisionStepsRemaining = 0; arrowTrail = [];
+        const tx = savedPlayerX + dir.dx, ty = savedPlayerY + dir.dy;
+        if (!artemisShrines.some(a => a.x === tx && a.y === ty)) artemisShrines.push({ x: tx, y: ty });
+        playerArrows = 0;
+        handleMobileMove(dir.mobile);
+        const got = playerArrows === 1 && !artemisShrines.some(a => a.x === tx && a.y === ty) && !!ab && ab.disabled === false;
+        playerArrows = MAX_ARROWS; artemisShrines.push({ x: savedPlayerX, y: savedPlayerY });
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.oppKey }));
+        const capped = playerArrows === MAX_ARROWS && artemisShrines.some(a => a.x === savedPlayerX && a.y === savedPlayerY);
+        pickOk = got && capped;
+        playerX = savedPlayerX; playerY = savedPlayerY; escapeX = tx; escapeY = ty;
+        playerArrows = 1; arrowVisionStepsRemaining = 3; arrowTrail = [{ x: savedPlayerX, y: savedPlayerY }];
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        winOk = gameWon === true && arrowVisionStepsRemaining === 0 && arrowTrail.length === 0 && !!ab && ab.disabled === true;
+        gameWon = false; if (winOverlay) winOverlay.style.display = 'none';
+        escapeX = -1; escapeY = -1; playerX = savedPlayerX; playerY = savedPlayerY;
+      }
+      I10 = kbOk && mobOk && pickOk && winOk;
+    }
+
     // @@INTEGRATION_CHECKS_APPEND@@
   } catch (e) {
+
     consoleErrors.push(e && e.message ? e.message : String(e));
   }
-
   // Restore all state in finally
   finally {
     // Helper functions for restoring collections
@@ -467,6 +673,21 @@ window.runIntegrationSmokeSpec = function() {
     window.orpheusShrines = orpheusShrines;
     window.athenaShrines = athenaShrines;
 
+    // Restore Poseidon Trident state
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
+
+    // Restore Artemis Silver Bow state
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
+    window.artemisShrines = artemisShrines;
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
+
     // Restore DOM elements
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
@@ -487,11 +708,11 @@ window.runIntegrationSmokeSpec = function() {
     updateFlareUI();
     updateDecoyUI();
     updateOwlUI();
+    updateTridentUI();
+    updateArrowUI();
     drawMaze();
-
-    // Restore console error handler
     console.error = origConsoleError;
-
-    return { I1, I2, I3, I4, I5, I6, I7, consoleErrors };
   }
+
+  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, consoleErrors };
 };
