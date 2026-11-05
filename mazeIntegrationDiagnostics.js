@@ -58,6 +58,11 @@ window.runIntegrationSmokeSpec = function() {
   const savedDashTrail = [...dashTrail];
   const savedDashTrailUntil = dashTrailUntil;
 
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
+
   // DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -138,7 +143,6 @@ window.runIntegrationSmokeSpec = function() {
     }
     return true;
   }
-
   // Flags
   let I1 = false;
   let I2 = false;
@@ -147,6 +151,7 @@ window.runIntegrationSmokeSpec = function() {
   let I5 = false;
   let I6 = false;
   let I7 = false;
+  let I8 = false;
 
   try {
     // Reset minotaur state
@@ -388,11 +393,82 @@ window.runIntegrationSmokeSpec = function() {
       I7 = en && dis && clr;
     }
 
+    // I8: Poseidon shrine invariants, Riptide Surge movement + Minotaur pushback/stun, button disable on win, and score bonus
+    {
+      const anchors = [
+        { x: savedPlayerX, y: savedPlayerY },
+        { x: savedEscapeX, y: savedEscapeY },
+        ...savedKeys, ...savedGates, ...savedTorchPickups, ...savedThreadSpools,
+        ...savedAegisShrines, ...savedHermesShrines, ...savedChronosShrines,
+        ...savedDaedalusShrines, ...savedIcarusShrines, ...savedOrpheusShrines, ...savedAthenaShrines
+      ];
+      for (const sp of (window.secretPassages || [])) {
+        anchors.push({ x: sp.fromX, y: sp.fromY }, { x: sp.toX, y: sp.toY });
+      }
+      const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const st = { x: savedPlayerX, y: savedPlayerY };
+      const placementOk = Array.isArray(poseidonShrines) &&
+        poseidonShrines.length >= 12 &&
+        poseidonShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) &&
+        poseidonShrines.filter(s => md(s, st) <= 35).length >= 3 &&
+        poseidonShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && poseidonShrines.every((o, j) => j === i || md(s, o) >= 5));
+
+      const dir = validDir(savedPlayerX, savedPlayerY);
+      let surgeOk = false;
+      let btnOk = false;
+      let scoreOk = false;
+      if (dir) {
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = -1;
+        escapeY = -1;
+        gameWon = false;
+        gameLost = false;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerTridents = 1;
+        updateTridentUI();
+        const tb = document.getElementById('tridentButton');
+        const en = !!tb && tb.disabled === false;
+        gameWon = true;
+        updateTridentUI();
+        const dis = !!tb && tb.disabled === true;
+        gameWon = false;
+        updateTridentUI();
+        btnOk = en && dis;
+
+        playerTridents = 0;
+        const s0 = formatWinSummary();
+        playerTridents = 2;
+        const s2 = formatWinSummary();
+        const m0 = s0.match(/Score:\s*(\d+)/);
+        const m2 = s2.match(/Score:\s*(\d+)/);
+        scoreOk = !!(m0 && m2 && (Number(m2[1]) - Number(m0[1]) === 300));
+
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        minotaurActive = true;
+        minotaurX = savedPlayerX + dir.dx;
+        minotaurY = savedPlayerY + dir.dy;
+        minotaurStunnedUntil = 0;
+        minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
+        playerTridents = 1;
+        const stepsBefore = steps;
+        const surged = triggerRiptideSurge();
+        surgeOk = surged === true &&
+          playerTridents === 0 &&
+          steps === stepsBefore + (riptideTrail.length - 1) &&
+          (playerX !== savedPlayerX || playerY !== savedPlayerY) &&
+          Array.isArray(riptideTrail) && riptideTrail.length >= 2 &&
+          minotaurStunnedUntil > Date.now() + 3000;
+      }
+      I8 = placementOk && btnOk && scoreOk && surgeOk;
+    }
+
     // @@INTEGRATION_CHECKS_APPEND@@
   } catch (e) {
+
     consoleErrors.push(e && e.message ? e.message : String(e));
   }
-
   // Restore all state in finally
   finally {
     // Helper functions for restoring collections
@@ -467,6 +543,13 @@ window.runIntegrationSmokeSpec = function() {
     window.orpheusShrines = orpheusShrines;
     window.athenaShrines = athenaShrines;
 
+    // Restore Poseidon Trident state
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
+
     // Restore DOM elements
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
@@ -487,9 +570,10 @@ window.runIntegrationSmokeSpec = function() {
     updateFlareUI();
     updateDecoyUI();
     updateOwlUI();
+    updateTridentUI();
     drawMaze();
     console.error = origConsoleError;
   }
 
-  return { I1, I2, I3, I4, I5, I6, I7, consoleErrors };
+  return { I1, I2, I3, I4, I5, I6, I7, I8, consoleErrors };
 };

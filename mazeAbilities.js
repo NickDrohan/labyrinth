@@ -157,3 +157,184 @@ function triggerOwlClairvoyance() {
   drawMaze();
   return true;
 }
+
+function canSurgeInFacingDir() {
+  if (!Array.isArray(maze) || maze.length === 0 || !lastMoveDir || typeof lastMoveDir !== 'object') return false;
+  if (Math.abs(lastMoveDir.dx) + Math.abs(lastMoveDir.dy) !== 1) return false;
+  const nx = playerX + lastMoveDir.dx;
+  const ny = playerY + lastMoveDir.dy;
+  if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) return false;
+  if (gates.some(g => g.x === nx && g.y === ny)) return playerKeys > 0;
+  return true;
+}
+
+function collectTridentAt(x, y) {
+  if (playerTridents >= MAX_TRIDENTS || !Array.isArray(poseidonShrines)) return false;
+  const i = poseidonShrines.findIndex(p => p && p.x === x && p.y === y);
+  if (i === -1) return false;
+  poseidonShrines.splice(i, 1);
+  playerTridents++;
+  showBannerMessage('Poseidon Trident acquired! (' + playerTridents + '/' + MAX_TRIDENTS + ')', 'rgba(0,140,130,0.92)');
+  updateTridentUI();
+  return true;
+}
+
+function triggerRiptideSurge() {
+  if (gameWon || gameLost || playerTridents <= 0) return false;
+  if (!canSurgeInFacingDir()) {
+    showBannerMessage('Riptide blocked! Face an open corridor to surge.', 'rgba(0,100,110,0.9)');
+    return false;
+  }
+  playerTridents--;
+  riptideTrail = [{ x: playerX, y: playerY }];
+  riptideFlashUntil = Date.now() + 750;
+  let tilesSurfed = 0;
+  let sweptMinotaur = false;
+  for (let step = 1; step <= RIPTIDE_MAX_STEPS; step++) {
+    const nx = playerX + lastMoveDir.dx;
+    const ny = playerY + lastMoveDir.dy;
+    if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) break;
+    const gIdx = gates.findIndex(g => g.x === nx && g.y === ny);
+    if (gIdx !== -1) {
+      if (playerKeys > 0) {
+        playerKeys--;
+        gates.splice(gIdx, 1);
+        document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+      } else break;
+    }
+    playerX = nx;
+    playerY = ny;
+    tilesSurfed++;
+    steps++;
+    riptideTrail.push({ x: playerX, y: playerY });
+    visitedTiles.add(`${playerX},${playerY}`);
+    // Update minotaur path
+    if (!isDecoyLureActive()) {
+      if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) {
+        minotaurPath.pop();
+      } else {
+        minotaurPath.push({ x: playerX, y: playerY });
+      }
+    }
+    // Collect pickups on traversed tile
+    // Key pickup
+    const keyIdx = keys.findIndex(k => k.x === playerX && k.y === playerY);
+    if (keyIdx !== -1) {
+      playerKeys++;
+      keys.splice(keyIdx, 1);
+      document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+    }
+    // Torch pickup
+    const torchIdx = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+    if (torchIdx !== -1) {
+      torchPickups.splice(torchIdx, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      updateTorchIndicator();
+    }
+    // Additional player step callbacks
+    onPlayerThreadStep();
+    collectHermesAt(playerX, playerY);
+    collectBreachAt(playerX, playerY);
+    onPlayerFlareStep();
+    onPlayerDecoyStep();
+    onPlayerOwlStep();
+    // Collect trident on surge tile
+    collectTridentAt(playerX, playerY);
+    if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
+      sweptMinotaur = true;
+      minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + RIPTIDE_STUN_MS);
+      pushMinotaurBack(RIPTIDE_PUSH_STEPS);
+    }
+    if (playerX === escapeX && playerY === escapeY || secretPassages.some(p => p.fromX === playerX && p.fromY === playerY)) break;
+  }
+  document.getElementById('stepCounter').textContent = 'Steps: ' + steps;
+  document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
+  if (torchActive) {
+    torchStepsRemaining--;
+    if (torchStepsRemaining <= 0) {
+      torchActive = false;
+      torchStepsRemaining = 0;
+    }
+    updateTorchIndicator();
+  }
+  if (secretPassages.some(p => p.fromX === playerX && p.fromY === playerY)) {
+    const passage = secretPassages.find(p => p.fromX === playerX && p.fromY === playerY);
+    playerX = passage.toX;
+    playerY = passage.toY;
+    visitedTiles.add(`${playerX},${playerY}`);
+    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
+    // Minotaur path update matching triggerPhaseDash
+    if (!isDecoyLureActive()) {
+      if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) minotaurPath.pop();
+      else minotaurPath.push({ x: playerX, y: playerY });
+    }
+    // Collect pickups at teleport destination
+    // Key pickup
+    const destKeyIdx = keys.findIndex(k => k.x === playerX && k.y === playerY);
+    if (destKeyIdx !== -1) {
+      playerKeys++;
+      keys.splice(destKeyIdx, 1);
+      document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
+    }
+    // Torch pickup
+    const destTorchIdx = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+    if (destTorchIdx !== -1) {
+      torchPickups.splice(destTorchIdx, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      updateTorchIndicator();
+    }
+    // Additional pickup callbacks
+    if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+    collectShieldAt(playerX, playerY);
+    collectHermesAt(playerX, playerY);
+    collectBreachAt(playerX, playerY);
+    collectRecallAt(playerX, playerY);
+    if (collectIcarusAt(playerX, playerY)) updateFlareUI();
+    if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
+    if (collectOwlAt(playerX, playerY)) updateOwlUI();
+    if (owlStepsRemaining > 0) refreshOwlEscapePreview();
+    collectTridentAt(playerX, playerY);
+    showSecretPassageMessage();
+  }
+  if (playerX === escapeX && playerY === escapeY) {
+    gameWon = true;
+    clearInterval(minotaurInterval);
+    compassStepsRemaining = 0;
+    solarFlareStepsRemaining = 0;
+    torchActive = false;
+    torchStepsRemaining = 0;
+    activeDecoy = null;
+    window.activeDecoy = null;
+    owlStepsRemaining = 0;
+    owlEscapePreview = [];
+    document.getElementById('winOverlay').textContent = formatWinSummary();
+    document.getElementById('winOverlay').style.display = 'flex';
+    updateTorchIndicator();
+    updateSpoolUI();
+    updateShieldUI();
+    updateDashUI();
+    updateRecallUI();
+    updateBreachUI();
+    updateFlareUI();
+    updateDecoyUI();
+    updateOwlUI();
+    updateTridentUI();
+    drawMaze();
+    return true;
+  }
+  const bannerText = sweptMinotaur ? 'Riptide Surge! Surfed ' + tilesSurfed + ' tiles & swept Minotaur back!' : 'Riptide Surge! Surfed ' + tilesSurfed + ' tiles!';
+  showBannerMessage(bannerText, 'rgba(0,150,140,0.92)');
+  updateTridentUI();
+  updateDashUI();
+  updateShieldUI();
+  updateRecallUI();
+  updateBreachUI();
+  updateFlareUI();
+  updateDecoyUI();
+  updateOwlUI();
+  updateSpoolUI();
+  drawMaze();
+  return true;
+}

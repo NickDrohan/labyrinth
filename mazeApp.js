@@ -92,6 +92,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+    const tridentBtn = document.getElementById('tridentButton');
+    if (tridentBtn) {
+        tridentBtn.addEventListener('click', function() {
+            triggerRiptideSurge();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -154,6 +161,7 @@ const MAX_BREACHES = 3;
 const DAEDALUS_SHRINE_COUNT = 16;
 const BREACH_STUN_MS = 4000;
 let breachFlashUntil = 0;
+
 let icarusShrines = [];
 window.icarusShrines = icarusShrines;
 let playerFlares = 0;
@@ -188,6 +196,17 @@ const OWL_GLARE_STUN_MS = 3000;
 let owlStepsRemaining = 0;
 let owlFlashUntil = 0;
 let owlEscapePreview = [];
+
+let poseidonShrines = [];
+window.poseidonShrines = poseidonShrines;
+let playerTridents = 0;
+const MAX_TRIDENTS = 3;
+const POSEIDON_SHRINE_COUNT = 16;
+const RIPTIDE_MAX_STEPS = 6;
+const RIPTIDE_STUN_MS = 4000;
+const RIPTIDE_PUSH_STEPS = 8;
+let riptideTrail = [];
+let riptideFlashUntil = 0;
 
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
@@ -234,25 +253,13 @@ window.triggerSirenDecoy = triggerSirenDecoy;
 window.advanceMinotaurLure = advanceMinotaurLure;
 window.activateThreadCompass = activateThreadCompass;
 window.triggerOwlClairvoyance = triggerOwlClairvoyance;
-// Generate the maze
-let cameraMode = "center";
+window.triggerRiptideSurge = triggerRiptideSurge;
+
+let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);
 
-// Ensure the player starts on a valid path
-
-// Generate the maze
-
-
-// Ensure the player starts on a valid path
-while (maze[playerY][playerX] !== 1) {
-    playerX = Math.floor(Math.random() * 1000);
-    playerY = Math.floor(Math.random() * 1000);
-}
-
-
-// Add this to your initialization code
-initMobileControls();
-// Restart button on the defeat overlay reloads the game
 document.getElementById('resetButton').addEventListener('click', () => {
-    window.location.reload();
+    initGame();
 });
+
+initMobileControls();

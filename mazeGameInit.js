@@ -86,6 +86,94 @@ function initGame() {
     owlFlashUntil = 0;
     owlEscapePreview = [];
 
+    // Reset Poseidon Trident & Riptide Surge state
+    poseidonShrines.length = 0;
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = 0;
+    riptideTrail = [];
+    riptideFlashUntil = 0;
+
+    // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
+    playerX = 25;
+    playerY = 25;
+    maze[playerY][playerX] = 1;
+    maze[playerY][playerX + 1] = 1;
+    maze[playerY - 1][playerX] = 1;
+
+    // Select escape tile first to ensure escapeX/escapeY are set
+    selectEscapeTile();
+    document.getElementById('keyCounter').textContent = 'Keys: 0';
+    keys.length = 0;
+    gates.length = 0;
+
+    // Reset torch state and pickups
+    torchPickups.length = 0;
+    torchActive = false;
+    torchStepsRemaining = 0;
+    updateTorchIndicator();
+
+    // Reset thread spools and compass state
+    threadSpools.length = 0;
+    window.threadSpools = threadSpools;
+    playerSpools = 0;
+    compassStepsRemaining = 0;
+    // Reset Aegis Shield state
+    aegisShrines.length = 0;
+    window.aegisShrines = aegisShrines;
+    playerShields = 0;
+    minotaurStunnedUntil = 0;
+    repelFlashUntil = 0;
+
+    // Reset Hermes Winged Sandals & Phase Dash state
+    hermesShrines.length = 0;
+    window.hermesShrines = hermesShrines;
+    playerDashes = 0;
+    lastMoveDir = { dx: 1, dy: 0 };
+    dashTrail = [];
+    dashTrailUntil = 0;
+    steps = 0;
+
+    // Reset Chronos state globals
+    chronosShrines.length = 0;
+    window.chronosShrines = chronosShrines;
+    playerRecalls = 0;
+    chronosAnchor = null;
+    recallFlashUntil = 0;
+    daedalusShrines.length = 0;
+    window.daedalusShrines = daedalusShrines;
+    breachedTiles.length = 0;
+    window.breachedTiles = breachedTiles;
+    playerBreaches = 0;
+    breachFlashUntil = 0;
+    icarusShrines.length = 0;
+    window.icarusShrines = icarusShrines;
+    playerFlares = 0;
+    solarFlareStepsRemaining = 0;
+    solarFlareFlashUntil = 0;
+
+    // Reset Orpheus Lyre & Siren Decoy state
+    orpheusShrines.length = 0;
+    window.orpheusShrines = orpheusShrines;
+    playerDecoys = 0;
+    activeDecoy = null;
+    window.activeDecoy = null;
+    decoyFlashUntil = 0;
+
+    // Reset Athena Owl & Tactical Clairvoyance state
+    athenaShrines.length = 0;
+    window.athenaShrines = athenaShrines;
+    playerOwls = 0;
+    owlStepsRemaining = 0;
+    owlFlashUntil = 0;
+    owlEscapePreview = [];
+
+    // Reset Poseidon Trident & Riptide Surge state
+    poseidonShrines.length = 0;
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = 0;
+    riptideTrail = [];
+    riptideFlashUntil = 0;
+
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
     // Helper: BFS to find shortest path from (sx,sy) to (ex,ey) on maze (1=path,0=wall)
@@ -223,6 +311,8 @@ function initGame() {
     updateDecoyUI();
     placeAthenaShrines();
     updateOwlUI();
+    placePoseidonShrines();
+    updateTridentUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -275,6 +365,7 @@ function initGame() {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -344,6 +435,13 @@ function initGame() {
             return;
         }
 
+        // Poseidon Riptide Surge hotkey
+        if (event.key === 'c' || event.key === 'C') {
+            event.preventDefault();
+            triggerRiptideSurge();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -376,6 +474,7 @@ function initGame() {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
 
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
@@ -423,6 +522,8 @@ function initGame() {
                 }
                 onPlayerDecoyStep();
                 onPlayerOwlStep();
+                collectTridentAt(playerX, playerY);
+                updateTridentUI();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -483,6 +584,8 @@ function initGame() {
                     collectOwlAt(playerX, playerY);
                     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
                     updateOwlUI();
+                    collectTridentAt(playerX, playerY);
+                    updateTridentUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -517,6 +620,7 @@ function initGame() {
                     owlStepsRemaining = 0;
                     owlEscapePreview = [];
                     updateOwlUI();
+                    updateTridentUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -547,6 +651,7 @@ function initGame() {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) overlay.style.display = 'flex';
                     drawMaze();

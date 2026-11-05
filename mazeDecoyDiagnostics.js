@@ -56,6 +56,12 @@ window.runDecoySmokeSpec = function() {
   const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
   const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
 
+  // Poseidon Trident state
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
+
   // DOM overlays and HUD
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -289,6 +295,8 @@ window.runDecoySmokeSpec = function() {
     restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines);
     restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
     // Scalars
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -303,6 +311,8 @@ window.runDecoySmokeSpec = function() {
     playerOwls = savedPlayerOwls;
     owlStepsRemaining = savedOwlStepsRemaining;
     owlFlashUntil = savedOwlFlashUntil;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;
@@ -323,6 +333,7 @@ window.runDecoySmokeSpec = function() {
     window.activeDecoy = activeDecoy;
     window.orpheusShrines = orpheusShrines;
     window.athenaShrines = athenaShrines;
+    window.poseidonShrines = poseidonShrines;
     // DOM overlays and HUD
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
@@ -342,6 +353,7 @@ window.runDecoySmokeSpec = function() {
     if (typeof updateFlareUI === 'function') updateFlareUI();
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
+    if (typeof updateTridentUI === 'function') updateTridentUI();
     if (typeof drawMaze === 'function') drawMaze();
     console.error = origConsoleError;
   }
@@ -404,6 +416,12 @@ window.runOwlSmokeSpec = function() {
   const savedIcarusShrines = icarusShrines.map(i => ({ x: i.x, y: i.y }));
   const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
   const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
+
+  // Snapshot Poseidon state
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
 
   // Snapshot DOM elements
   const winOverlay = document.getElementById('winOverlay');
@@ -543,9 +561,12 @@ window.runOwlSmokeSpec = function() {
     restoreArray(hermesShrines, savedHermesShrines); restoreArray(chronosShrines, savedChronosShrines);
     restoreArray(daedalusShrines, savedDaedalusShrines); restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines); restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
     chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
+    window.poseidonShrines = poseidonShrines;
 
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -561,6 +582,8 @@ window.runOwlSmokeSpec = function() {
     playerOwls = savedPlayerOwls;
     owlStepsRemaining = savedOwlStepsRemaining;
     owlFlashUntil = savedOwlFlashUntil;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;
@@ -602,6 +625,7 @@ window.runOwlSmokeSpec = function() {
     if (typeof updateFlareUI === 'function') updateFlareUI();
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
+    if (typeof updateTridentUI === 'function') updateTridentUI();
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error

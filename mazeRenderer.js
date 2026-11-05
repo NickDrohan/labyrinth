@@ -107,9 +107,21 @@ function updateBreachUI() {
 }
 
 function formatWinSummary() {
-  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0);
+  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0);
   const score = Math.max(100, 5000 - steps * 2 + visitedTiles.size * 5 + bonusCharges * 150);
   return `You Escaped! Steps: ${steps} | Tiles: ${visitedTiles.size} | Score: ${score}`;
+}
+
+function updateTridentUI() {
+  const c = document.getElementById('tridentCounter');
+  if (c) {
+    c.textContent = `Tridents: ${playerTridents} (${getDirectionArrow()})`;
+    c.classList.toggle('ready', Boolean(playerTridents > 0 && typeof canSurgeInFacingDir === 'function' && canSurgeInFacingDir()));
+  }
+  const b = document.getElementById('tridentButton');
+  if (b) {
+    b.disabled = Boolean(playerTridents <= 0 || gameWon || gameLost);
+  }
 }
 
 function updateRecallUI() {
@@ -249,7 +261,7 @@ function drawMaze() {
                     }
 
                     // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, chronos anchor, and uncollected Icarus shrines, and uncollected Athena shrines)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(isDecoyLureActive() && activeDecoy.x === mazeX && activeDecoy.y === mazeY) && !athenaShrines.some(a => a.x === mazeX && a.y === mazeY)) {
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(isDecoyLureActive() && activeDecoy.x === mazeX && activeDecoy.y === mazeY) && !athenaShrines.some(a => a.x === mazeX && a.y === mazeY) && !(Array.isArray(poseidonShrines) && poseidonShrines.some(p => p.x === mazeX && p.y === mazeY))) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -426,6 +438,25 @@ function drawMaze() {
                     mazeGraphics.endFill();
                     mazeGraphics.beginFill(0xffffff, 1);
                     mazeGraphics.drawCircle(cx, cy, tileSize * 0.09);
+                    mazeGraphics.endFill();
+                }
+
+                // Poseidon Trident shrines
+                if (Array.isArray(poseidonShrines) && poseidonShrines.some(p => p.x === mazeX && p.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    mazeGraphics.beginFill(0x00ffd5, 0.95);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.38);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0x0b3b3c, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.24);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0xffffff, 1);
+                    mazeGraphics.drawRect(cx - 4, cy - 4, 1.5, 5);
+                    mazeGraphics.drawRect(cx - 0.75, cy - 5, 1.5, 6);
+                    mazeGraphics.drawRect(cx + 2.5, cy - 4, 1.5, 5);
+                    mazeGraphics.drawRect(cx - 4, cy, 8, 1.5);
+                    mazeGraphics.drawRect(cx - 0.75, cy + 1, 1.5, 4);
                     mazeGraphics.endFill();
                 }
 
@@ -636,6 +667,9 @@ function drawMaze() {
         if (athenaShrines.length > 0) {
             relicCandidates.push(...athenaShrines);
         }
+        if (Array.isArray(poseidonShrines) && poseidonShrines.length > 0) {
+            relicCandidates.push(...poseidonShrines);
+        }
         for (const r of relicCandidates) {
             if (r.x >= startX && r.x < startX + visibleWidth && r.y >= startY && r.y < startY + visibleHeight) {
                 if (Math.max(Math.abs(r.x - playerX), Math.abs(r.y - playerY)) > effR) {
@@ -675,6 +709,17 @@ function drawMaze() {
         mazeGraphics.drawRect(0, 0, visibleWidth * tileSize, visibleHeight * tileSize);
         mazeGraphics.endFill();
         mazeGraphics.lineStyle(0);
+    }
+
+    // Riptide Surge seafoam wake
+    if (Date.now() < riptideFlashUntil && Array.isArray(riptideTrail)) {
+        for (const t of riptideTrail) {
+            if (t.x >= startX && t.x < startX + visibleWidth && t.y >= startY && t.y < startY + visibleHeight) {
+                mazeGraphics.beginFill(0x00ffd5, 0.45);
+                mazeGraphics.drawRoundedRect((t.x - startX) * tileSize + 2, (t.y - startY) * tileSize + 2, tileSize - 4, tileSize - 4, 4);
+                mazeGraphics.endFill();
+            }
+        }
     }
 
     // Draw Minotaur

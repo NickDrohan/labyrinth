@@ -81,7 +81,9 @@ window.getThreadState = () => ({
   playerOwls,
   owlStepsRemaining,
   athenaShrines: athenaShrines.map(a => ({ x: a.x, y: a.y })),
-  owlEscapePreviewLen: owlEscapePreview.length
+  owlEscapePreviewLen: owlEscapePreview.length,
+  playerTridents,
+  poseidonShrines: poseidonShrines.map(p => ({ x: p.x, y: p.y }))
 });
 window.runThreadSmokeSpec = function() {
     // Console error capture (T1)
@@ -136,6 +138,8 @@ window.runThreadSmokeSpec = function() {
     const savedOwlStepsRemaining = owlStepsRemaining;
     const savedOwlFlashUntil = owlFlashUntil;
     const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
+    const savedPlayerTridents = playerTridents;
+    const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
     const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
     // Overlay display/textContent
     const winOverlay = document.getElementById('winOverlay');
@@ -423,6 +427,10 @@ window.runThreadSmokeSpec = function() {
         window.athenaShrines = athenaShrines;
         owlEscapePreview = savedOwlEscapePreview.map(p => ({ x: p.x, y: p.y }));
         playerOwls = savedPlayerOwls;
+        poseidonShrines.length = 0;
+        poseidonShrines.push(...savedPoseidonShrines);
+        window.poseidonShrines = poseidonShrines;
+        playerTridents = savedPlayerTridents;
         owlStepsRemaining = savedOwlStepsRemaining;
         owlFlashUntil = savedOwlFlashUntil;
         // Restore minotaurPath
@@ -457,6 +465,7 @@ window.runThreadSmokeSpec = function() {
         updateFlareUI();
         updateDecoyUI();
         updateOwlUI();
+        if (typeof updateTridentUI === 'function') updateTridentUI();
         drawMaze();
         // Restore console.error
         console.error = origConsoleError;
