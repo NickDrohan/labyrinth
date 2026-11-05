@@ -93,6 +93,8 @@ function handleMobileMove(direction) {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
+        updateArrowUI();
     }
 
     // Check if the new position is a gate
@@ -168,6 +170,11 @@ function handleMobileMove(direction) {
         onPlayerDecoyStep();
         onPlayerOwlStep();
 
+        // Collect Poseidon trident at new position
+        collectTridentAt(playerX, playerY);
+        updateTridentUI();
+        onPlayerArrowStep();
+
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
         if (passageIdx !== -1) {
@@ -209,6 +216,12 @@ function handleMobileMove(direction) {
             if (owlStepsRemaining > 0) refreshOwlEscapePreview();
             updateOwlUI();
 
+            // Collect Poseidon trident at secret passage destination
+            collectTridentAt(playerX, playerY);
+            updateTridentUI();
+            collectArrowAt(playerX, playerY);
+            updateArrowUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -239,6 +252,8 @@ function handleMobileMove(direction) {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
+                    updateArrowUI();
                     return;
                 }
                 gameLost = true;
@@ -246,6 +261,9 @@ function handleMobileMove(direction) {
                 updateShieldUI();
                 updateDashUI();
                 updateRecallUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
@@ -278,6 +296,8 @@ function handleMobileMove(direction) {
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 return;
             } else {
                 gameLost = true;
@@ -289,6 +309,8 @@ function handleMobileMove(direction) {
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -325,6 +347,10 @@ function handleMobileMove(direction) {
             owlStepsRemaining = 0;
             owlEscapePreview = [];
             updateOwlUI();
+            updateTridentUI();
+            arrowVisionStepsRemaining = 0;
+            arrowTrail = [];
+            updateArrowUI();
             drawMaze();
             return;
         }
