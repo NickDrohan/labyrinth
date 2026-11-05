@@ -552,7 +552,7 @@ function placeApolloShrines() {
 
   // 5. Define canPlaceAt(x, y)
   function canPlaceAt(x, y) {
-    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, apolloShrines) && far(x, y, artemisShrines);
+    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, apolloShrines);
   }
 
   // 6. Define tryPlaceApollo(targetCount, minR, maxR, maxAttempts)

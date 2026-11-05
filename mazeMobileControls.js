@@ -248,7 +248,7 @@ function handleMobileMove(direction) {
             showSecretPassageMessage();
 
             // Check if minotaur is at destination (lose condition)
-            if (playerX === minotaurX && playerY === minotaurY) {
+            if (minotaurActive && playerX === minotaurX && playerY === minotaurY) {
                 if (playerShields > 0) {
                     triggerAegisRepel(true);
                     updateDashUI();
@@ -298,7 +298,7 @@ function handleMobileMove(direction) {
         }
 
         // Check for Minotaur collision (non-teleport step)
-        if (playerX === minotaurX && playerY === minotaurY) {
+        if (minotaurActive && playerX === minotaurX && playerY === minotaurY) {
             if (playerShields > 0) {
                 triggerAegisRepel(true);
                 updateDashUI();

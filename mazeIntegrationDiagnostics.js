@@ -317,7 +317,11 @@ window.runIntegrationSmokeSpec = function() {
       if (dir) {
         chronosAnchor = { x: savedPlayerX, y: savedPlayerY };
         playerRecalls = 1;
+        gameWon = false;
+        gameLost = false;
         minotaurActive = false;
+        minotaurX = -1;
+        minotaurY = -1;
         handleMobileMove(dir.mobile);
       }
       const Q = findPursuer(savedPlayerX, savedPlayerY);
@@ -428,6 +432,10 @@ window.runIntegrationSmokeSpec = function() {
       }
       const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
       const st = { x: savedPlayerX, y: savedPlayerY };
+      // Restore poseidonShrines from savedPoseidonShrines before placementOk
+      poseidonShrines.length = 0;
+      poseidonShrines.push(...savedPoseidonShrines);
+      window.poseidonShrines = poseidonShrines;
       const placementOk = Array.isArray(poseidonShrines) &&
         poseidonShrines.length >= 12 &&
         poseidonShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) &&
@@ -474,7 +482,12 @@ window.runIntegrationSmokeSpec = function() {
         minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
         playerTridents = 1;
         const stepsBefore = steps;
+        // Clear poseidonShrines so triggerRiptideSurge cannot collect a Poseidon shrine along its 6-tile path
+        poseidonShrines.length = 0;
         const surged = triggerRiptideSurge();
+        // Restore poseidonShrines from savedPoseidonShrines after surgeOk is computed
+        poseidonShrines.push(...savedPoseidonShrines);
+        window.poseidonShrines = poseidonShrines;
         surgeOk = surged === true &&
           playerTridents === 0 &&
           steps === stepsBefore + 1 &&
@@ -500,6 +513,10 @@ window.runIntegrationSmokeSpec = function() {
       }
       const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
       const st = { x: savedPlayerX, y: savedPlayerY };
+      // Restore artemisShrines from savedArtemisShrines before placementOk
+      artemisShrines.length = 0;
+      artemisShrines.push(...savedArtemisShrines);
+      window.artemisShrines = artemisShrines;
       const placementOk = Array.isArray(artemisShrines) &&
         artemisShrines.length >= 12 &&
         artemisShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) &&
@@ -548,12 +565,14 @@ window.runIntegrationSmokeSpec = function() {
         minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
         const kx = savedPlayerX + dir.dx;
         const ky = savedPlayerY + dir.dy;
-        if (!keys.some(k => k.x === kx && k.y === ky)) {
-          keys.push({ x: kx, y: ky });
-        }
-        const keysBefore = playerKeys;
+        keys.length = 0;
+        keys.push({ x: kx, y: ky });
+        artemisShrines.length = 0;
         playerArrows = 1;
+        const keysBefore = playerKeys;
         const fired = triggerSilverArrow();
+        artemisShrines.length = 0; artemisShrines.push(...savedArtemisShrines); window.artemisShrines = artemisShrines;
+        keys.length = 0; keys.push(...savedKeys);
         arrowOk = fired === true &&
           playerArrows === 0 &&
           arrowVisionStepsRemaining === 10 &&
@@ -577,6 +596,7 @@ window.runIntegrationSmokeSpec = function() {
         activeDecoy = null; window.activeDecoy = null;
         lastMoveDir = { dx: dir.dx, dy: dir.dy };
         playerArrows = 1; arrowVisionStepsRemaining = 0; arrowTrail = [];
+        artemisShrines.length = 0;
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
         kbOk = playerArrows === 0 && arrowVisionStepsRemaining === 10 && playerX === savedPlayerX && playerY === savedPlayerY;
         document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
@@ -602,6 +622,8 @@ window.runIntegrationSmokeSpec = function() {
       }
 
       // Apollo Sun Chariot placement invariants
+      artemisShrines.length = 0; artemisShrines.push(...savedArtemisShrines); window.artemisShrines = artemisShrines;
+      apolloShrines.length = 0; apolloShrines.push(...savedApolloShrines); window.apolloShrines = apolloShrines;
       const apAnchors = [
         { x: savedPlayerX, y: savedPlayerY },
         { x: savedEscapeX, y: savedEscapeY },
@@ -666,9 +688,10 @@ window.runIntegrationSmokeSpec = function() {
         minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
         const kx = savedPlayerX + dir.dx;
         const ky = savedPlayerY + dir.dy;
-        if (!keys.some(k => k.x === kx && k.y === ky)) {
-          keys.push({ x: kx, y: ky });
-        }
+        apolloShrines.length = 0;
+        gates.length = 0;
+        keys.length = 0;
+        keys.push({ x: kx, y: ky });
         const keysBefore = playerKeys;
         const stepsBefore = steps;
         playerChariots = 1;
@@ -712,6 +735,9 @@ window.runIntegrationSmokeSpec = function() {
         playerX = savedPlayerX;
         playerY = savedPlayerY;
         apolloChargeOk = apolloChargeOk && zOk && winOkZ;
+        apolloShrines.length = 0; apolloShrines.push(...savedApolloShrines); window.apolloShrines = apolloShrines;
+        gates.length = 0; gates.push(...savedGates);
+        keys.length = 0; keys.push(...savedKeys);
       }
 
       I10 = kbOk && mobOk && pickOk && winOk && apolloPlacementOk && apolloBtnScoreOk && apolloChargeOk;

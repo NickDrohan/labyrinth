@@ -222,6 +222,7 @@ function triggerPhaseDash() {
   updateOwlUI();
   updateTridentUI();
   updateArrowUI();
+  updateChariotUI();
   drawMaze();
   return true;
 }
