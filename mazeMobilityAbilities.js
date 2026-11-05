@@ -54,6 +54,7 @@ function triggerPhaseDash() {
     collectDecoyAt(tx1, ty1);
     collectOwlAt(tx1, ty1);
     collectTridentAt(tx1, ty1);
+    collectArrowAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -95,6 +96,7 @@ function triggerPhaseDash() {
   onPlayerDecoyStep();
   onPlayerOwlStep();
   collectTridentAt(playerX, playerY);
+  onPlayerArrowStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -132,6 +134,7 @@ function triggerPhaseDash() {
     if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
     if (collectOwlAt(playerX, playerY)) updateOwlUI();
     if (collectTridentAt(playerX, playerY)) updateTridentUI();
+    if (collectArrowAt(playerX, playerY)) updateArrowUI();
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
@@ -146,6 +149,7 @@ function triggerPhaseDash() {
       updateDecoyUI();
       updateOwlUI();
       updateTridentUI();
+      updateArrowUI();
       return true;
     }
     gameLost = true;
@@ -160,6 +164,7 @@ function triggerPhaseDash() {
     updateDecoyUI();
     updateOwlUI();
     updateTridentUI();
+    updateArrowUI();
     drawMaze();
     return true;
   }
@@ -188,6 +193,9 @@ function triggerPhaseDash() {
     owlEscapePreview = [];
     updateOwlUI();
     updateTridentUI();
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    updateArrowUI();
     drawMaze();
 
     return true;
@@ -201,6 +209,7 @@ function triggerPhaseDash() {
   updateDecoyUI();
   updateOwlUI();
   updateTridentUI();
+  updateArrowUI();
   drawMaze();
   return true;
 }
@@ -257,7 +266,9 @@ function triggerChronosRecall() {
   if (owlStepsRemaining > 0) refreshOwlEscapePreview();
   showBannerMessage('Chronos Recall! Warped to anchor & Minotaur stunned for 5s!', 'rgba(110,30,160,0.92)');
   collectTridentAt(playerX, playerY);
+  collectArrowAt(playerX, playerY);
   updateRecallUI();
+  updateArrowUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
@@ -310,6 +321,7 @@ function triggerWallBreach() {
   onPlayerFlareStep();
   onPlayerDecoyStep();
   onPlayerOwlStep();
+  onPlayerArrowStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -338,6 +350,7 @@ function triggerWallBreach() {
   updateDecoyUI();
   updateOwlUI();
   updateTridentUI();
+  updateArrowUI();
   drawMaze();
   return true;
 }

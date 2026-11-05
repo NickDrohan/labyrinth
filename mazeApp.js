@@ -99,6 +99,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+
+    const arrowBtn = document.getElementById('arrowButton');
+    if (arrowBtn) {
+        arrowBtn.addEventListener('click', function() {
+            triggerSilverArrow();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -208,6 +216,19 @@ const RIPTIDE_PUSH_STEPS = 8;
 let riptideTrail = [];
 let riptideFlashUntil = 0;
 
+let artemisShrines = [];
+window.artemisShrines = artemisShrines;
+let playerArrows = 0;
+const MAX_ARROWS = 3;
+const ARTEMIS_SHRINE_COUNT = 16;
+const ARROW_MAX_RANGE = 14;
+const ARROW_VISION_STEPS = 10;
+const ARROW_STUN_MS = 5500;
+const ARROW_PUSH_STEPS = 6;
+let arrowVisionStepsRemaining = 0;
+let arrowTrail = [];
+let arrowFlashUntil = 0;
+
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
 let playerRecalls = 0;
@@ -246,7 +267,6 @@ window.triggerChronosRecall = triggerChronosRecall;
 
 window.triggerWallBreach = triggerWallBreach;
 window.triggerSolarFlare = triggerSolarFlare;
-
 let _pathParent = null, _pathStamp = null, _pathQueue = null, _pathGen = 0;
 
 window.triggerSirenDecoy = triggerSirenDecoy;
@@ -254,6 +274,7 @@ window.advanceMinotaurLure = advanceMinotaurLure;
 window.activateThreadCompass = activateThreadCompass;
 window.triggerOwlClairvoyance = triggerOwlClairvoyance;
 window.triggerRiptideSurge = triggerRiptideSurge;
+window.triggerSilverArrow = triggerSilverArrow;
 
 let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);

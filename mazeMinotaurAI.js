@@ -230,6 +230,7 @@ function advanceMinotaurLure() {
       updateDecoyUI();
       updateOwlUI();
       updateTridentUI();
+      updateArrowUI();
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
@@ -242,6 +243,7 @@ function advanceMinotaurLure() {
       updateDecoyUI();
       updateOwlUI();
       updateTridentUI();
+      updateArrowUI();
       const lo = document.getElementById('loseOverlay');
       if (lo) lo.style.display = 'flex';
       drawMaze();

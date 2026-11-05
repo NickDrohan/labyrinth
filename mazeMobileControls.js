@@ -94,6 +94,7 @@ function handleMobileMove(direction) {
         updateDashUI();
         updateBreachUI();
         updateTridentUI();
+        updateArrowUI();
     }
 
     // Check if the new position is a gate
@@ -172,6 +173,7 @@ function handleMobileMove(direction) {
         // Collect Poseidon trident at new position
         collectTridentAt(playerX, playerY);
         updateTridentUI();
+        onPlayerArrowStep();
 
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
@@ -217,6 +219,8 @@ function handleMobileMove(direction) {
             // Collect Poseidon trident at secret passage destination
             collectTridentAt(playerX, playerY);
             updateTridentUI();
+            collectArrowAt(playerX, playerY);
+            updateArrowUI();
 
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
@@ -249,6 +253,7 @@ function handleMobileMove(direction) {
                     updateDecoyUI();
                     updateOwlUI();
                     updateTridentUI();
+                    updateArrowUI();
                     return;
                 }
                 gameLost = true;
@@ -258,6 +263,7 @@ function handleMobileMove(direction) {
                 updateRecallUI();
                 updateOwlUI();
                 updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
@@ -291,6 +297,7 @@ function handleMobileMove(direction) {
                 updateDecoyUI();
                 updateOwlUI();
                 updateTridentUI();
+                updateArrowUI();
                 return;
             } else {
                 gameLost = true;
@@ -303,6 +310,7 @@ function handleMobileMove(direction) {
                 updateDecoyUI();
                 updateOwlUI();
                 updateTridentUI();
+                updateArrowUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) overlay.style.display = 'flex';
                 drawMaze();
@@ -340,6 +348,9 @@ function handleMobileMove(direction) {
             owlEscapePreview = [];
             updateOwlUI();
             updateTridentUI();
+            arrowVisionStepsRemaining = 0;
+            arrowTrail = [];
+            updateArrowUI();
             drawMaze();
             return;
         }

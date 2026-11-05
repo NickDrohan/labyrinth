@@ -93,12 +93,23 @@ function initGame() {
     riptideTrail = [];
     riptideFlashUntil = 0;
 
+    // Reset Artemis Silver Bow & Piercing Silver Arrow state
+    artemisShrines.length = 0;
+    window.artemisShrines = artemisShrines;
+    playerArrows = 0;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    arrowFlashUntil = 0;
+
     // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
     playerX = 25;
     playerY = 25;
     maze[playerY][playerX] = 1;
     maze[playerY][playerX + 1] = 1;
     maze[playerY - 1][playerX] = 1;
+    visitedTiles.clear();
+    visitedTiles.add(`${playerX},${playerY}`);
+    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -173,6 +184,14 @@ function initGame() {
     playerTridents = 0;
     riptideTrail = [];
     riptideFlashUntil = 0;
+
+    // Reset Artemis Silver Bow & Piercing Silver Arrow state
+    artemisShrines.length = 0;
+    window.artemisShrines = artemisShrines;
+    playerArrows = 0;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    arrowFlashUntil = 0;
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -313,6 +332,8 @@ function initGame() {
     updateOwlUI();
     placePoseidonShrines();
     updateTridentUI();
+    placeArtemisShrines();
+    updateArrowUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -366,6 +387,7 @@ function initGame() {
                     updateDecoyUI();
                     updateOwlUI();
                     updateTridentUI();
+                    updateArrowUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -442,6 +464,13 @@ function initGame() {
             return;
         }
 
+        // Artemis Silver Arrow hotkey
+        if (event.key === 'x' || event.key === 'X') {
+            event.preventDefault();
+            triggerSilverArrow();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -475,6 +504,7 @@ function initGame() {
         updateDashUI();
         updateBreachUI();
         updateTridentUI();
+        updateArrowUI();
 
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
@@ -524,6 +554,7 @@ function initGame() {
                 onPlayerOwlStep();
                 collectTridentAt(playerX, playerY);
                 updateTridentUI();
+                onPlayerArrowStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -586,6 +617,8 @@ function initGame() {
                     updateOwlUI();
                     collectTridentAt(playerX, playerY);
                     updateTridentUI();
+                    collectArrowAt(playerX, playerY);
+                    updateArrowUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -621,6 +654,9 @@ function initGame() {
                     owlEscapePreview = [];
                     updateOwlUI();
                     updateTridentUI();
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
+                    updateArrowUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -647,11 +683,12 @@ function initGame() {
                     updateDashUI();
                     updateRecallUI();
                     updateBreachUI();
+                    updateTridentUI();
+                    updateArrowUI();
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
-                    updateTridentUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) overlay.style.display = 'flex';
                     drawMaze();

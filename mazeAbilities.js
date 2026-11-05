@@ -205,7 +205,6 @@ function triggerRiptideSurge() {
     playerX = nx;
     playerY = ny;
     tilesSurfed++;
-    steps++;
     riptideTrail.push({ x: playerX, y: playerY });
     visitedTiles.add(`${playerX},${playerY}`);
     // Update minotaur path
@@ -241,6 +240,7 @@ function triggerRiptideSurge() {
     onPlayerOwlStep();
     // Collect trident on surge tile
     collectTridentAt(playerX, playerY);
+    onPlayerArrowStep();
     if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
       sweptMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + RIPTIDE_STUN_MS);
@@ -248,6 +248,7 @@ function triggerRiptideSurge() {
     }
     if (playerX === escapeX && playerY === escapeY || secretPassages.some(p => p.fromX === playerX && p.fromY === playerY)) break;
   }
+  steps++;
   document.getElementById('stepCounter').textContent = 'Steps: ' + steps;
   document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: ' + visitedTiles.size;
   if (torchActive) {
@@ -296,6 +297,7 @@ function triggerRiptideSurge() {
     if (collectOwlAt(playerX, playerY)) updateOwlUI();
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     collectTridentAt(playerX, playerY);
+    collectArrowAt(playerX, playerY);
     showSecretPassageMessage();
   }
   if (playerX === escapeX && playerY === escapeY) {
@@ -309,6 +311,8 @@ function triggerRiptideSurge() {
     window.activeDecoy = null;
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
     document.getElementById('winOverlay').textContent = formatWinSummary();
     document.getElementById('winOverlay').style.display = 'flex';
     updateTorchIndicator();
@@ -321,6 +325,7 @@ function triggerRiptideSurge() {
     updateDecoyUI();
     updateOwlUI();
     updateTridentUI();
+    updateArrowUI();
     drawMaze();
     return true;
   }
@@ -334,6 +339,111 @@ function triggerRiptideSurge() {
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateSpoolUI();
+  updateArrowUI();
+  drawMaze();
+  return true;
+}
+
+function canFireArrowInFacingDir() {
+  if (!Array.isArray(maze) || maze.length === 0 || !lastMoveDir || typeof lastMoveDir !== 'object') return false;
+  if (Math.abs(lastMoveDir.dx) + Math.abs(lastMoveDir.dy) !== 1) return false;
+  const nx = playerX + lastMoveDir.dx;
+  const ny = playerY + lastMoveDir.dy;
+  if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) return false;
+  return true;
+}
+
+function collectArrowAt(x, y) {
+  if (playerArrows >= MAX_ARROWS || !Array.isArray(artemisShrines)) return false;
+  const i = artemisShrines.findIndex(a => a && a.x === x && a.y === y);
+  if (i === -1) return false;
+  artemisShrines.splice(i, 1);
+  playerArrows++;
+  showBannerMessage('Artemis Silver Bow acquired! (' + playerArrows + '/' + MAX_ARROWS + ')', 'rgba(20,130,95,0.92)');
+  updateArrowUI();
+  return true;
+}
+
+function onPlayerArrowStep() {
+  collectArrowAt(playerX, playerY);
+  if (arrowVisionStepsRemaining > 0) {
+    arrowVisionStepsRemaining--;
+    if (arrowVisionStepsRemaining <= 0) {
+      arrowVisionStepsRemaining = 0;
+      arrowTrail = [];
+    }
+  }
+  updateArrowUI();
+}
+
+function triggerSilverArrow() {
+  if (gameWon || gameLost || playerArrows <= 0) return false;
+  if (!canFireArrowInFacingDir()) {
+    showBannerMessage('Silver Arrow blocked! Face an open corridor to fire.', 'rgba(20,100,80,0.9)');
+    return false;
+  }
+  playerArrows--;
+  arrowTrail = [{ x: playerX, y: playerY }];
+  arrowVisionStepsRemaining = ARROW_VISION_STEPS;
+  arrowFlashUntil = Date.now() + 750;
+  let tilesPierced = 0;
+  let pickupsSkewered = 0;
+  let pinnedMinotaur = false;
+  for (let step = 1; step <= ARROW_MAX_RANGE; step++) {
+    const nx = playerX + step * lastMoveDir.dx;
+    const ny = playerY + step * lastMoveDir.dy;
+    if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) break;
+    tilesPierced++;
+    arrowTrail.push({ x: nx, y: ny });
+    visitedTiles.add(`${nx},${ny}`);
+    const keyIdx = keys.findIndex(k => k.x === nx && k.y === ny);
+    if (keyIdx !== -1) {
+      playerKeys++;
+      keys.splice(keyIdx, 1);
+      pickupsSkewered++;
+      const kc = document.getElementById('keyCounter');
+      if (kc) kc.textContent = 'Keys: ' + playerKeys;
+    }
+    const torchIdx = torchPickups.findIndex(t => t.x === nx && t.y === ny);
+    if (torchIdx !== -1) {
+      torchPickups.splice(torchIdx, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      pickupsSkewered++;
+      updateTorchIndicator();
+    }
+    if (collectSpoolAt(nx, ny)) pickupsSkewered++;
+    if (collectShieldAt(nx, ny)) pickupsSkewered++;
+    if (collectHermesAt(nx, ny)) pickupsSkewered++;
+    if (collectRecallAt(nx, ny)) pickupsSkewered++;
+    if (collectBreachAt(nx, ny)) pickupsSkewered++;
+    if (collectIcarusAt(nx, ny)) pickupsSkewered++;
+    if (collectDecoyAt(nx, ny)) pickupsSkewered++;
+    if (collectOwlAt(nx, ny)) pickupsSkewered++;
+    if (collectTridentAt(nx, ny)) pickupsSkewered++;
+    if (collectArrowAt(nx, ny)) pickupsSkewered++;
+    if (!pinnedMinotaur && minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - nx) + Math.abs(minotaurY - ny) <= 1) {
+      pinnedMinotaur = true;
+      minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + ARROW_STUN_MS);
+      pushMinotaurBack(ARROW_PUSH_STEPS);
+    }
+  }
+  const uc = document.getElementById('uniqueTilesCounter');
+  if (uc) uc.textContent = 'Unique Tiles: ' + visitedTiles.size;
+  const bannerText = pinnedMinotaur
+    ? 'Silver Arrow! Pierced ' + tilesPierced + ' tiles & pinned Minotaur (5.5s)!'
+    : 'Silver Arrow! Pierced ' + tilesPierced + ' tiles' + (pickupsSkewered > 0 ? ' & retrieved ' + pickupsSkewered + ' pickup(s)!' : '!');
+  showBannerMessage(bannerText, 'rgba(25,140,105,0.92)');
+  updateArrowUI();
+  updateTridentUI();
+  updateOwlUI();
+  updateDecoyUI();
+  updateFlareUI();
+  updateBreachUI();
+  updateRecallUI();
+  updateDashUI();
+  updateShieldUI();
   updateSpoolUI();
   drawMaze();
   return true;

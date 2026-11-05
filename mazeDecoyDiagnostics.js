@@ -62,6 +62,13 @@ window.runDecoySmokeSpec = function() {
   const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
   const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
 
+  // Artemis Silver Bow state
+  const savedPlayerArrows = playerArrows;
+  const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+  const savedArrowFlashUntil = arrowFlashUntil;
+  const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+  const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
+
   // DOM overlays and HUD
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -83,6 +90,8 @@ window.runDecoySmokeSpec = function() {
   try {
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
     // D1: Orpheus Shrine Placement Invariants
     if (!Array.isArray(orpheusShrines) || orpheusShrines.length < 12) throw new Error('D1: orpheusShrines.length < 12');
     for (const s of orpheusShrines) {
@@ -297,6 +306,8 @@ window.runDecoySmokeSpec = function() {
     restoreArray(owlEscapePreview, savedOwlEscapePreview);
     restoreArray(poseidonShrines, savedPoseidonShrines);
     restoreArray(riptideTrail, savedRiptideTrail);
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
     // Scalars
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -354,6 +365,11 @@ window.runDecoySmokeSpec = function() {
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
     if (typeof updateTridentUI === 'function') updateTridentUI();
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
+    window.artemisShrines = artemisShrines;
+    if (typeof updateArrowUI === 'function') updateArrowUI();
     if (typeof drawMaze === 'function') drawMaze();
     console.error = origConsoleError;
   }
@@ -423,6 +439,13 @@ window.runOwlSmokeSpec = function() {
   const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
   const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
 
+  // Snapshot Artemis state
+  const savedPlayerArrows = playerArrows;
+  const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+  const savedArrowFlashUntil = arrowFlashUntil;
+  const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+  const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
+
   // Snapshot DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -454,6 +477,9 @@ window.runOwlSmokeSpec = function() {
     window.activeDecoy = null;
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
 
     // O1: Verify Athena Shrine placement
     {
@@ -563,6 +589,8 @@ window.runOwlSmokeSpec = function() {
     restoreArray(athenaShrines, savedAthenaShrines); restoreArray(owlEscapePreview, savedOwlEscapePreview);
     restoreArray(poseidonShrines, savedPoseidonShrines);
     restoreArray(riptideTrail, savedRiptideTrail);
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
     chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
@@ -626,6 +654,7 @@ window.runOwlSmokeSpec = function() {
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
     if (typeof updateTridentUI === 'function') updateTridentUI();
+    if (typeof updateArrowUI === 'function') updateArrowUI();
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error

@@ -83,7 +83,10 @@ window.getThreadState = () => ({
   athenaShrines: athenaShrines.map(a => ({ x: a.x, y: a.y })),
   owlEscapePreviewLen: owlEscapePreview.length,
   playerTridents,
-  poseidonShrines: poseidonShrines.map(p => ({ x: p.x, y: p.y }))
+  poseidonShrines: poseidonShrines.map(p => ({ x: p.x, y: p.y })),
+  playerArrows,
+  arrowVisionStepsRemaining,
+  artemisShrines: artemisShrines.map(a => ({ x: a.x, y: a.y }))
 });
 window.runThreadSmokeSpec = function() {
     // Console error capture (T1)
@@ -141,6 +144,12 @@ window.runThreadSmokeSpec = function() {
     const savedPlayerTridents = playerTridents;
     const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
     const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
+    // Artemis Silver Bow state
+    const savedPlayerArrows = playerArrows;
+    const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+    const savedArrowFlashUntil = arrowFlashUntil;
+    const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+    const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
     // Overlay display/textContent
     const winOverlay = document.getElementById('winOverlay');
     const loseOverlay = document.getElementById('loseOverlay');
@@ -169,6 +178,8 @@ window.runThreadSmokeSpec = function() {
         window.activeDecoy = null;
         owlStepsRemaining = 0;
         owlEscapePreview = [];
+        arrowVisionStepsRemaining = 0;
+        arrowTrail = [];
         const st0 = window.getThreadState();
         p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
             st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
@@ -394,6 +405,14 @@ window.runThreadSmokeSpec = function() {
         orpheusShrines.length = 0;
         orpheusShrines.push(...savedOrpheusShrines);
         window.orpheusShrines = orpheusShrines;
+        athenaShrines.length = 0;
+        athenaShrines.push(...savedAthenaShrines);
+        window.athenaShrines = athenaShrines;
+        owlEscapePreview.length = 0;
+        owlEscapePreview.push(...savedOwlEscapePreview);
+        poseidonShrines.length = 0;
+        poseidonShrines.push(...savedPoseidonShrines);
+        window.poseidonShrines = poseidonShrines;
         // Restore scalar globals
         playerX = savedPlayerX;
         playerY = savedPlayerY;
@@ -422,17 +441,17 @@ window.runThreadSmokeSpec = function() {
         activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
         window.activeDecoy = activeDecoy;
         decoyFlashUntil = savedDecoyFlashUntil;
-        athenaShrines.length = 0;
-        athenaShrines.push(...savedAthenaShrines);
-        window.athenaShrines = athenaShrines;
-        owlEscapePreview = savedOwlEscapePreview.map(p => ({ x: p.x, y: p.y }));
         playerOwls = savedPlayerOwls;
-        poseidonShrines.length = 0;
-        poseidonShrines.push(...savedPoseidonShrines);
-        window.poseidonShrines = poseidonShrines;
-        playerTridents = savedPlayerTridents;
         owlStepsRemaining = savedOwlStepsRemaining;
         owlFlashUntil = savedOwlFlashUntil;
+        playerTridents = savedPlayerTridents;
+        artemisShrines.length = 0;
+        artemisShrines.push(...savedArtemisShrines);
+        window.artemisShrines = artemisShrines;
+        playerArrows = savedPlayerArrows;
+        arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+        arrowFlashUntil = savedArrowFlashUntil;
+        arrowTrail = savedArrowTrail.map(t => ({ x: t.x, y: t.y }));
         // Restore minotaurPath
         minotaurPath.length = 0;
         for (const n of savedMinotaurPath) minotaurPath.push({ x: n.x, y: n.y });
@@ -466,6 +485,7 @@ window.runThreadSmokeSpec = function() {
         updateDecoyUI();
         updateOwlUI();
         if (typeof updateTridentUI === 'function') updateTridentUI();
+        if (typeof updateArrowUI === 'function') updateArrowUI();
         drawMaze();
         // Restore console.error
         console.error = origConsoleError;
