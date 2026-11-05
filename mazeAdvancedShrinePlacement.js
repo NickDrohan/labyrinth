@@ -508,3 +508,102 @@ function placeArtemisShrines() {
   // 13. Assign to window
   window.artemisShrines = artemisShrines;
 }
+
+function placeApolloShrines() {
+  // 1. Clear apolloShrines and assign to window
+  apolloShrines.length = 0;
+  window.apolloShrines = apolloShrines;
+
+  // 2. Build anchors array
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+
+  function pushKeys(arr) {
+    if (Array.isArray(arr)) arr.forEach(p => { anchors.push({ x: p.x, y: p.y }); });
+  }
+
+  pushKeys(keys);
+  pushKeys(gates);
+  pushKeys(torchPickups);
+  if (secretPassages) {
+    secretPassages.forEach(p => { anchors.push({ x: p.fromX, y: p.fromY }); anchors.push({ x: p.toX, y: p.toY }); });
+  }
+  pushKeys(threadSpools);
+  pushKeys(aegisShrines);
+  pushKeys(hermesShrines);
+  pushKeys(chronosShrines);
+  pushKeys(daedalusShrines);
+  pushKeys(icarusShrines);
+  pushKeys(orpheusShrines);
+  pushKeys(athenaShrines);
+  pushKeys(poseidonShrines);
+  pushKeys(artemisShrines);
+
+  // 3. Define H and W
+  const H = maze.length;
+  const W = maze[0].length;
+
+  // 4. Define far(x, y, list)
+  function far(x, y, list) {
+    return list.every(a => Math.abs(x - a.x) + Math.abs(y - a.y) >= 5);
+  }
+
+  // 5. Define canPlaceAt(x, y)
+  function canPlaceAt(x, y) {
+    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, apolloShrines) && far(x, y, artemisShrines);
+  }
+
+  // 6. Define tryPlaceApollo(targetCount, minR, maxR, maxAttempts)
+  function tryPlaceApollo(targetCount, minR, maxR, maxAttempts) {
+    for (let attempts = 0; attempts < maxAttempts && apolloShrines.length < targetCount; attempts++) {
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      if (canPlaceAt(playerX + dx, playerY + dy)) {
+        apolloShrines.push({ x: playerX + dx, y: playerY + dy });
+      }
+    }
+  }
+
+  // 7. Call tryPlaceApollo(5, 6, 35, 6000)
+  tryPlaceApollo(5, 6, 35, 6000);
+
+  // 8. Count near shrines and deterministic ring scan
+  let nearCount = apolloShrines.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 35).length;
+  if (nearCount < 3) {
+    for (let d = 6; d <= 35 && nearCount < 3; d++) {
+      for (let dx = -d; dx <= d && nearCount < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        const ys = dy === 0 ? [playerY] : [playerY + dy, playerY - dy];
+        for (const cy of ys) {
+          if (canPlaceAt(playerX + dx, cy)) {
+            apolloShrines.push({ x: playerX + dx, y: cy });
+            nearCount++;
+          }
+          if (nearCount >= 3) break;
+        }
+      }
+    }
+  }
+
+  // 10. tryPlaceApollo(APOLLO_SHRINE_COUNT, 8, 160, 25000)
+  tryPlaceApollo(APOLLO_SHRINE_COUNT, 8, 160, 25000);
+
+  // 11. tryPlaceApollo(APOLLO_SHRINE_COUNT, 5, W + H, 50000)
+  tryPlaceApollo(APOLLO_SHRINE_COUNT, 5, W + H, 50000);
+
+  // 12. Row-major fallback ensuring apolloShrines.length >= 12
+  if (apolloShrines.length < 12) {
+    for (let y = 0; y < H && apolloShrines.length < 12; y++) {
+      for (let x = 0; x < W && apolloShrines.length < 12; x++) {
+        if (canPlaceAt(x, y)) apolloShrines.push({ x, y });
+      }
+    }
+  }
+
+  // 13. Assign to window
+  window.apolloShrines = apolloShrines;
+}

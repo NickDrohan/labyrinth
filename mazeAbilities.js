@@ -241,6 +241,7 @@ function triggerRiptideSurge() {
     // Collect trident on surge tile
     collectTridentAt(playerX, playerY);
     onPlayerArrowStep();
+    collectChariotAt(playerX, playerY);
     if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
       sweptMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + RIPTIDE_STUN_MS);
@@ -298,6 +299,7 @@ function triggerRiptideSurge() {
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     collectTridentAt(playerX, playerY);
     collectArrowAt(playerX, playerY);
+    collectChariotAt(playerX, playerY);
     showSecretPassageMessage();
   }
   if (playerX === escapeX && playerY === escapeY) {
@@ -313,6 +315,8 @@ function triggerRiptideSurge() {
     owlEscapePreview = [];
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
     document.getElementById('winOverlay').textContent = formatWinSummary();
     document.getElementById('winOverlay').style.display = 'flex';
     updateTorchIndicator();
@@ -326,6 +330,7 @@ function triggerRiptideSurge() {
     updateOwlUI();
     updateTridentUI();
     updateArrowUI();
+    updateChariotUI();
     drawMaze();
     return true;
   }
@@ -341,8 +346,42 @@ function triggerRiptideSurge() {
   updateOwlUI();
   updateSpoolUI();
   updateArrowUI();
+  updateChariotUI();
   drawMaze();
   return true;
+}
+
+function canChargeChariotInFacingDir() {
+  if (!Array.isArray(maze) || maze.length === 0 || !lastMoveDir || typeof lastMoveDir !== 'object') return false;
+  if (Math.abs(lastMoveDir.dx) + Math.abs(lastMoveDir.dy) !== 1) return false;
+  const nx = playerX + lastMoveDir.dx;
+  const ny = playerY + lastMoveDir.dy;
+  if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) return false;
+  if (gates.some(g => g.x === nx && g.y === ny)) return playerKeys > 0;
+  return true;
+}
+
+function collectChariotAt(x, y) {
+  if (playerChariots >= MAX_CHARIOTS || !Array.isArray(apolloShrines)) return false;
+  const i = apolloShrines.findIndex(ap => ap && ap.x === x && ap.y === y);
+  if (i === -1) return false;
+  apolloShrines.splice(i, 1);
+  playerChariots++;
+  showBannerMessage('Apollo Sun Chariot acquired! (' + playerChariots + '/' + MAX_CHARIOTS + ')', 'rgba(210,110,10,0.92)');
+  updateChariotUI();
+  return true;
+}
+
+function onPlayerChariotStep() {
+  collectChariotAt(playerX, playerY);
+  if (chariotTrailStepsRemaining > 0) {
+    chariotTrailStepsRemaining--;
+    if (chariotTrailStepsRemaining <= 0) {
+      chariotTrailStepsRemaining = 0;
+      chariotTrail = [];
+    }
+  }
+  updateChariotUI();
 }
 
 function canFireArrowInFacingDir() {
@@ -423,6 +462,7 @@ function triggerSilverArrow() {
     if (collectOwlAt(nx, ny)) pickupsSkewered++;
     if (collectTridentAt(nx, ny)) pickupsSkewered++;
     if (collectArrowAt(nx, ny)) pickupsSkewered++;
+    if (collectChariotAt(nx, ny)) pickupsSkewered++;
     if (!pinnedMinotaur && minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - nx) + Math.abs(minotaurY - ny) <= 1) {
       pinnedMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + ARROW_STUN_MS);
@@ -436,6 +476,7 @@ function triggerSilverArrow() {
     : 'Silver Arrow! Pierced ' + tilesPierced + ' tiles' + (pickupsSkewered > 0 ? ' & retrieved ' + pickupsSkewered + ' pickup(s)!' : '!');
   showBannerMessage(bannerText, 'rgba(25,140,105,0.92)');
   updateArrowUI();
+  updateChariotUI();
   updateTridentUI();
   updateOwlUI();
   updateDecoyUI();
@@ -444,6 +485,181 @@ function triggerSilverArrow() {
   updateRecallUI();
   updateDashUI();
   updateShieldUI();
+  updateSpoolUI();
+  drawMaze();
+  return true;
+}
+
+function triggerSolarChariot() {
+  if (gameWon || gameLost || playerChariots <= 0) return false;
+  if (!canChargeChariotInFacingDir()) {
+    showBannerMessage('Solar Chariot blocked! Face an open corridor to charge.', 'rgba(180,80,10,0.9)');
+    return false;
+  }
+  playerChariots--;
+  chariotTrail = [{ x: playerX, y: playerY }];
+  chariotTrailStepsRemaining = CHARIOT_TRAIL_STEPS;
+  chariotFlashUntil = Date.now() + 800;
+  let tilesCharged = 0;
+  let scorchedMinotaur = false;
+  for (let step = 1; step <= CHARIOT_MAX_STEPS; step++) {
+    const nx = playerX + lastMoveDir.dx;
+    const ny = playerY + lastMoveDir.dy;
+    if (ny < 0 || ny >= maze.length || nx < 0 || nx >= maze[0].length || !maze[ny] || maze[ny][nx] !== 1) break;
+    const gIdx = gates.findIndex(g => g.x === nx && g.y === ny);
+    if (gIdx !== -1) {
+      if (playerKeys > 0) {
+        playerKeys--;
+        gates.splice(gIdx, 1);
+        const kc = document.getElementById('keyCounter');
+        if (kc) kc.textContent = 'Keys: ' + playerKeys;
+      } else {
+        break;
+      }
+    }
+    playerX = nx;
+    playerY = ny;
+    tilesCharged++;
+    chariotTrail.push({ x: playerX, y: playerY });
+    visitedTiles.add(playerX + ',' + playerY);
+    if (!isDecoyLureActive()) {
+      if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) {
+        minotaurPath.pop();
+      } else {
+        minotaurPath.push({ x: playerX, y: playerY });
+      }
+    }
+    const keyIdx = keys.findIndex(k => k.x === playerX && k.y === playerY);
+    if (keyIdx !== -1) {
+      playerKeys++;
+      keys.splice(keyIdx, 1);
+      const kc = document.getElementById('keyCounter');
+      if (kc) kc.textContent = 'Keys: ' + playerKeys;
+    }
+    const torchIdx = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+    if (torchIdx !== -1) {
+      torchPickups.splice(torchIdx, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      updateTorchIndicator();
+    }
+    onPlayerThreadStep();
+    collectHermesAt(playerX, playerY);
+    collectBreachAt(playerX, playerY);
+    onPlayerFlareStep();
+    onPlayerDecoyStep();
+    onPlayerOwlStep();
+    collectTridentAt(playerX, playerY);
+    onPlayerArrowStep();
+    collectChariotAt(playerX, playerY);
+    if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
+      scorchedMinotaur = true;
+      minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+      pushMinotaurBack(CHARIOT_PUSH_STEPS);
+    }
+    if ((playerX === escapeX && playerY === escapeY) || secretPassages.some(p => p.fromX === playerX && p.fromY === playerY)) break;
+  }
+  steps++;
+  const sc = document.getElementById('stepCounter');
+  if (sc) sc.textContent = 'Steps: ' + steps;
+  const uc = document.getElementById('uniqueTilesCounter');
+  if (uc) uc.textContent = 'Unique Tiles: ' + visitedTiles.size;
+  if (torchActive) {
+    torchStepsRemaining--;
+    if (torchStepsRemaining <= 0) {
+      torchActive = false;
+      torchStepsRemaining = 0;
+    }
+    updateTorchIndicator();
+  }
+  if (secretPassages.some(p => p.fromX === playerX && p.fromY === playerY)) {
+    const passage = secretPassages.find(p => p.fromX === playerX && p.fromY === playerY);
+    playerX = passage.toX;
+    playerY = passage.toY;
+    visitedTiles.add(playerX + ',' + playerY);
+    const uc2 = document.getElementById('uniqueTilesCounter');
+    if (uc2) uc2.textContent = 'Unique Tiles: ' + visitedTiles.size;
+    if (!isDecoyLureActive()) {
+      if (minotaurPath.length > 0 && minotaurPath[minotaurPath.length - 1].x === playerX && minotaurPath[minotaurPath.length - 1].y === playerY) minotaurPath.pop();
+      else minotaurPath.push({ x: playerX, y: playerY });
+    }
+    const destKeyIdx = keys.findIndex(k => k.x === playerX && k.y === playerY);
+    if (destKeyIdx !== -1) {
+      playerKeys++;
+      keys.splice(destKeyIdx, 1);
+      const kc = document.getElementById('keyCounter');
+      if (kc) kc.textContent = 'Keys: ' + playerKeys;
+    }
+    const destTorchIdx = torchPickups.findIndex(t => t.x === playerX && t.y === playerY);
+    if (destTorchIdx !== -1) {
+      torchPickups.splice(destTorchIdx, 1);
+      torchActive = true;
+      torchStepsRemaining = TORCH_EFFECT_STEPS;
+      updateTorchIndicator();
+    }
+    if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+    collectShieldAt(playerX, playerY);
+    collectHermesAt(playerX, playerY);
+    collectBreachAt(playerX, playerY);
+    collectRecallAt(playerX, playerY);
+    if (collectIcarusAt(playerX, playerY)) updateFlareUI();
+    if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
+    if (collectOwlAt(playerX, playerY)) updateOwlUI();
+    if (owlStepsRemaining > 0) refreshOwlEscapePreview();
+    collectTridentAt(playerX, playerY);
+    collectArrowAt(playerX, playerY);
+    collectChariotAt(playerX, playerY);
+    showSecretPassageMessage();
+  }
+  if (playerX === escapeX && playerY === escapeY) {
+    gameWon = true;
+    clearInterval(minotaurInterval);
+    compassStepsRemaining = 0;
+    solarFlareStepsRemaining = 0;
+    torchActive = false;
+    torchStepsRemaining = 0;
+    activeDecoy = null;
+    window.activeDecoy = null;
+    owlStepsRemaining = 0;
+    owlEscapePreview = [];
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    const winOverlay = document.getElementById('winOverlay');
+    if (winOverlay) {
+      winOverlay.textContent = formatWinSummary();
+      winOverlay.style.display = 'flex';
+    }
+    updateTorchIndicator();
+    updateSpoolUI();
+    updateShieldUI();
+    updateDashUI();
+    updateRecallUI();
+    updateBreachUI();
+    updateFlareUI();
+    updateDecoyUI();
+    updateOwlUI();
+    updateTridentUI();
+    updateArrowUI();
+    updateChariotUI();
+    drawMaze();
+    return true;
+  }
+  const bannerMsg = scorchedMinotaur
+    ? 'Solar Chariot! Charged ' + tilesCharged + ' tiles & scorched Minotaur (5s)!'
+    : 'Solar Chariot! Charged ' + tilesCharged + ' tiles!';
+  showBannerMessage(bannerMsg, 'rgba(210,110,10,0.92)');
+  updateChariotUI();
+  updateArrowUI();
+  updateTridentUI();
+  updateDashUI();
+  updateShieldUI();
+  updateRecallUI();
+  updateBreachUI();
+  updateFlareUI();
+  updateDecoyUI();
+  updateOwlUI();
   updateSpoolUI();
   drawMaze();
   return true;

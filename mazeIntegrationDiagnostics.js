@@ -69,6 +69,13 @@ window.runIntegrationSmokeSpec = function() {
   const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
   const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
 
+  // Apollo Sun Chariot state
+  const savedPlayerChariots = playerChariots;
+  const savedChariotTrailStepsRemaining = chariotTrailStepsRemaining;
+  const savedChariotFlashUntil = chariotFlashUntil;
+  const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
+  const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
   // DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -174,6 +181,8 @@ window.runIntegrationSmokeSpec = function() {
 
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
 
     // I1: Keyboard victory
     {
@@ -591,7 +600,121 @@ window.runIntegrationSmokeSpec = function() {
         gameWon = false; if (winOverlay) winOverlay.style.display = 'none';
         escapeX = -1; escapeY = -1; playerX = savedPlayerX; playerY = savedPlayerY;
       }
-      I10 = kbOk && mobOk && pickOk && winOk;
+
+      // Apollo Sun Chariot placement invariants
+      const apAnchors = [
+        { x: savedPlayerX, y: savedPlayerY },
+        { x: savedEscapeX, y: savedEscapeY },
+        ...savedKeys,
+        ...savedGates,
+        ...savedTorchPickups,
+        ...savedThreadSpools,
+        ...savedAegisShrines,
+        ...savedHermesShrines,
+        ...savedChronosShrines,
+        ...savedDaedalusShrines,
+        ...savedIcarusShrines,
+        ...savedOrpheusShrines,
+        ...savedAthenaShrines,
+        ...savedPoseidonShrines,
+        ...savedArtemisShrines,
+        ...(window.secretPassages || []).map(sp => ({ x: sp.fromX, y: sp.fromY })),
+        ...(window.secretPassages || []).map(sp => ({ x: sp.toX, y: sp.toY }))
+      ];
+      const md = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const st = { x: savedPlayerX, y: savedPlayerY };
+      const apolloPlacementOk = Array.isArray(apolloShrines) && apolloShrines.length >= 12 && apolloShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) && apolloShrines.filter(s => md(s, st) <= 35).length >= 3 && apolloShrines.every((s, i) => apAnchors.every(a => md(s, a) >= 5) && apolloShrines.every((o, j) => j === i || md(s, o) >= 5));
+
+      // Apollo Sun Chariot button & score checks
+      let apolloBtnScoreOk = false;
+      const cb = document.getElementById('chariotButton');
+      if (dir) {
+        playerChariots = 1;
+        chariotTrailStepsRemaining = 0;
+        chariotTrail = [];
+        updateChariotUI();
+        if (cb && cb.disabled === false) {
+          gameWon = true;
+          updateChariotUI();
+          const btnDisabledAfter = cb.disabled === true;
+          gameWon = false;
+          updateChariotUI();
+          playerChariots = 0;
+          const s0 = formatWinSummary();
+          const m0 = s0.match(/Score:\s*(\d+)/);
+          playerChariots = 2;
+          const s2 = formatWinSummary();
+          playerChariots = 1;
+          const m2 = s2.match(/Score:\s*(\d+)/);
+          const scoreOk = !!(m0 && m2 && (Number(m2[1]) - Number(m0[1]) === 300));
+          apolloBtnScoreOk = btnDisabledAfter && scoreOk;
+        }
+      }
+
+      // Apollo Sun Chariot charge/trail/pickup/stun/z-hotkey/win-reset
+      let apolloChargeOk = false;
+      if (dir) {
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = -1;
+        escapeY = -1;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        minotaurActive = true;
+        minotaurX = savedPlayerX + dir.dx;
+        minotaurY = savedPlayerY + dir.dy;
+        minotaurStunnedUntil = 0;
+        minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
+        const kx = savedPlayerX + dir.dx;
+        const ky = savedPlayerY + dir.dy;
+        if (!keys.some(k => k.x === kx && k.y === ky)) {
+          keys.push({ x: kx, y: ky });
+        }
+        const keysBefore = playerKeys;
+        const stepsBefore = steps;
+        playerChariots = 1;
+        const charged = triggerSolarChariot();
+        apolloChargeOk = charged === true &&
+          playerChariots === 0 &&
+          chariotTrailStepsRemaining === 12 &&
+          steps === stepsBefore + 1 &&
+          (playerX !== savedPlayerX || playerY !== savedPlayerY) &&
+          Array.isArray(chariotTrail) &&
+          chariotTrail.length >= 2 &&
+          playerKeys === keysBefore + 1 &&
+          minotaurStunnedUntil > Date.now() + 4000;
+        
+        // Test 'z' hotkey and win reset
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        minotaurActive = false;
+        minotaurX = -1;
+        minotaurY = -1;
+        lastMoveDir = { dx: dir.dx, dy: dir.dy };
+        playerChariots = 1;
+        chariotTrailStepsRemaining = 0;
+        chariotTrail = [];
+        updateChariotUI();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+        const zOk = playerChariots === 0 && chariotTrailStepsRemaining === 12 && (playerX !== savedPlayerX || playerY !== savedPlayerY);
+        
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        escapeX = savedPlayerX + dir.dx;
+        escapeY = savedPlayerY + dir.dy;
+        playerChariots = 1;
+        updateChariotUI();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+        const winOkZ = gameWon === true && chariotTrailStepsRemaining === 0 && chariotTrail.length === 0 && !!cb && cb.disabled === true;
+        gameWon = false;
+        if (winOverlay) winOverlay.style.display = 'none';
+        escapeX = -1;
+        escapeY = -1;
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        apolloChargeOk = apolloChargeOk && zOk && winOkZ;
+      }
+
+      I10 = kbOk && mobOk && pickOk && winOk && apolloPlacementOk && apolloBtnScoreOk && apolloChargeOk;
     }
 
   } catch (e) {
@@ -687,6 +810,14 @@ window.runIntegrationSmokeSpec = function() {
     arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
     arrowFlashUntil = savedArrowFlashUntil;
 
+    // Restore Apollo Sun Chariot state
+    restoreArray(apolloShrines, savedApolloShrines);
+    restoreArray(chariotTrail, savedChariotTrail);
+    window.apolloShrines = apolloShrines;
+    playerChariots = savedPlayerChariots;
+    chariotTrailStepsRemaining = savedChariotTrailStepsRemaining;
+    chariotFlashUntil = savedChariotFlashUntil;
+
     // Restore DOM elements
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
@@ -709,6 +840,7 @@ window.runIntegrationSmokeSpec = function() {
     updateOwlUI();
     updateTridentUI();
     updateArrowUI();
+    updateChariotUI();
     drawMaze();
     console.error = origConsoleError;
   }

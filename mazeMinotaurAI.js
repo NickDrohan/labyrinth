@@ -231,11 +231,14 @@ function advanceMinotaurLure() {
       updateOwlUI();
       updateTridentUI();
       updateArrowUI();
+      updateChariotUI();
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
       arrowVisionStepsRemaining = 0;
       arrowTrail = [];
+      chariotTrailStepsRemaining = 0;
+      chariotTrail = [];
       updateSpoolUI();
       updateShieldUI();
       updateDashUI();
@@ -246,6 +249,7 @@ function advanceMinotaurLure() {
       updateOwlUI();
       updateTridentUI();
       updateArrowUI();
+      updateChariotUI();
       const lo = document.getElementById('loseOverlay');
       if (lo) lo.style.display = 'flex';
       drawMaze();
@@ -257,6 +261,18 @@ function advanceMinotaurLure() {
     shatterSirenDecoy('Minotaur ensnared by Siren Decoy! Stunned for 5s!');
     drawMaze();
     return { status: 'shattered', moved: true };
+  }
+
+  // Check if Minotaur stepped onto an active blazing trail
+  if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
+    minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
+    updateChariotUI();
+    updateShieldUI();
+    drawMaze();
+    return { status: 'scorched', moved: true };
   }
 
   updateShieldUI();

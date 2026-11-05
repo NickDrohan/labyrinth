@@ -343,14 +343,11 @@ body {
 }
 
 #arrowButton {
-    background: #193d33;
+    float: left;
+    font-size: 1.2rem;
     color: #c0ffd8;
-    border: 1px solid #c0ffd8;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-    margin: 4px;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
 }
 
 #arrowButton:disabled {
@@ -358,8 +355,36 @@ body {
     cursor: not-allowed;
 }
 
+#chariotCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffbb33;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#chariotCounter.ready {
+    color: #ffd966;
+    font-weight: bold;
+}
+
+#chariotButton {
+    background: #4a2208;
+    color: #ffbb33;
+    border: 1px solid #ffbb33;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#chariotButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 #gameCanvas {
-    display: block;
     margin: 0 auto;
     background-color: #2d2d2d;
     border: 2px solid #4a90e2;

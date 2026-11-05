@@ -101,6 +101,14 @@ function initGame() {
     arrowTrail = [];
     arrowFlashUntil = 0;
 
+    // Reset Apollo Sun Chariot & Blazing Solar Chariot Charge state
+    apolloShrines.length = 0;
+    window.apolloShrines = apolloShrines;
+    playerChariots = 0;
+    chariotTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotFlashUntil = 0;
+
     // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
     playerX = 25;
     playerY = 25;
@@ -252,6 +260,8 @@ function initGame() {
     updateTridentUI();
     placeArtemisShrines();
     updateArrowUI();
+    placeApolloShrines();
+    updateChariotUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -298,6 +308,8 @@ function initGame() {
                     gameLost = true;
                     arrowVisionStepsRemaining = 0;
                     arrowTrail = [];
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
@@ -308,6 +320,7 @@ function initGame() {
                     updateOwlUI();
                     updateTridentUI();
                     updateArrowUI();
+                    updateChariotUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -315,6 +328,13 @@ function initGame() {
                     return;
                 }
 
+                if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
+                    minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
+                    showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
+                    updateChariotUI();
+                }
                 updateShieldUI();
                 drawMaze();
             }
@@ -391,6 +411,13 @@ function initGame() {
             return;
         }
 
+        // Apollo Solar Chariot hotkey
+        if (event.key === 'z' || event.key === 'Z') {
+            event.preventDefault();
+            triggerSolarChariot();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -425,6 +452,7 @@ function initGame() {
         updateBreachUI();
         updateTridentUI();
         updateArrowUI();
+        updateChariotUI();
 
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
@@ -475,6 +503,7 @@ function initGame() {
                 collectTridentAt(playerX, playerY);
                 updateTridentUI();
                 onPlayerArrowStep();
+        onPlayerChariotStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -531,6 +560,10 @@ function initGame() {
                     collectRecallAt(playerX, playerY);
                     updateRecallUI();
                     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
+
+                    // Collect Apollo shrine at teleport destination
+                    collectChariotAt(playerX, playerY);
+                    updateChariotUI();
                     collectDecoyAt(playerX, playerY);
                     collectOwlAt(playerX, playerY);
                     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
@@ -577,6 +610,9 @@ function initGame() {
                     arrowVisionStepsRemaining = 0;
                     arrowTrail = [];
                     updateArrowUI();
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
+                    updateChariotUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -600,6 +636,8 @@ function initGame() {
                     gameLost = true;
                     arrowVisionStepsRemaining = 0;
                     arrowTrail = [];
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
@@ -607,6 +645,7 @@ function initGame() {
                     updateBreachUI();
                     updateTridentUI();
                     updateArrowUI();
+                    updateChariotUI();
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();

@@ -107,6 +107,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+
+    const chariotBtn = document.getElementById('chariotButton');
+    if (chariotBtn) {
+        chariotBtn.addEventListener('click', function() {
+            triggerSolarChariot();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -229,6 +237,19 @@ let arrowVisionStepsRemaining = 0;
 let arrowTrail = [];
 let arrowFlashUntil = 0;
 
+let apolloShrines = [];
+window.apolloShrines = apolloShrines;
+let playerChariots = 0;
+const MAX_CHARIOTS = 3;
+const APOLLO_SHRINE_COUNT = 16;
+const CHARIOT_MAX_STEPS = 8;
+const CHARIOT_TRAIL_STEPS = 12;
+const CHARIOT_STUN_MS = 5000;
+const CHARIOT_PUSH_STEPS = 7;
+let chariotTrail = [];
+let chariotTrailStepsRemaining = 0;
+let chariotFlashUntil = 0;
+
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
 let playerRecalls = 0;
@@ -275,6 +296,7 @@ window.activateThreadCompass = activateThreadCompass;
 window.triggerOwlClairvoyance = triggerOwlClairvoyance;
 window.triggerRiptideSurge = triggerRiptideSurge;
 window.triggerSilverArrow = triggerSilverArrow;
+window.triggerSolarChariot = triggerSolarChariot;
 
 let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);

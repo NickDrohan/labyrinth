@@ -69,6 +69,13 @@ window.runDecoySmokeSpec = function() {
   const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
   const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
 
+  // Apollo Sun Chariot state
+  const savedPlayerChariots = playerChariots;
+  const savedChariotTrailStepsRemaining = chariotTrailStepsRemaining;
+  const savedChariotFlashUntil = chariotFlashUntil;
+  const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
+  const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
   // DOM overlays and HUD
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -92,6 +99,8 @@ window.runDecoySmokeSpec = function() {
     owlEscapePreview = [];
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
     // D1: Orpheus Shrine Placement Invariants
     if (!Array.isArray(orpheusShrines) || orpheusShrines.length < 12) throw new Error('D1: orpheusShrines.length < 12');
     for (const s of orpheusShrines) {
@@ -308,6 +317,8 @@ window.runDecoySmokeSpec = function() {
     restoreArray(riptideTrail, savedRiptideTrail);
     restoreArray(artemisShrines, savedArtemisShrines);
     restoreArray(arrowTrail, savedArrowTrail);
+    restoreArray(apolloShrines, savedApolloShrines);
+    restoreArray(chariotTrail, savedChariotTrail);
     // Scalars
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -370,6 +381,11 @@ window.runDecoySmokeSpec = function() {
     arrowFlashUntil = savedArrowFlashUntil;
     window.artemisShrines = artemisShrines;
     if (typeof updateArrowUI === 'function') updateArrowUI();
+    playerChariots = savedPlayerChariots;
+    chariotTrailStepsRemaining = savedChariotTrailStepsRemaining;
+    chariotFlashUntil = savedChariotFlashUntil;
+    window.apolloShrines = apolloShrines;
+    if (typeof updateChariotUI === 'function') updateChariotUI();
     if (typeof drawMaze === 'function') drawMaze();
     console.error = origConsoleError;
   }
@@ -446,6 +462,13 @@ window.runOwlSmokeSpec = function() {
   const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
   const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
 
+  // Snapshot Apollo Sun Chariot state
+  const savedPlayerChariots = playerChariots;
+  const savedChariotTrailStepsRemaining = chariotTrailStepsRemaining;
+  const savedChariotFlashUntil = chariotFlashUntil;
+  const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
+  const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
   // Snapshot DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -480,6 +503,8 @@ window.runOwlSmokeSpec = function() {
 
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
 
     // O1: Verify Athena Shrine placement
     {
@@ -591,11 +616,14 @@ window.runOwlSmokeSpec = function() {
     restoreArray(riptideTrail, savedRiptideTrail);
     restoreArray(artemisShrines, savedArtemisShrines);
     restoreArray(arrowTrail, savedArrowTrail);
+    restoreArray(apolloShrines, savedApolloShrines);
+    restoreArray(chariotTrail, savedChariotTrail);
     chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
     window.poseidonShrines = poseidonShrines;
     window.artemisShrines = artemisShrines;
+    window.apolloShrines = apolloShrines;
 
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -616,6 +644,9 @@ window.runOwlSmokeSpec = function() {
     playerArrows = savedPlayerArrows;
     arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
     arrowFlashUntil = savedArrowFlashUntil;
+    playerChariots = savedPlayerChariots;
+    chariotTrailStepsRemaining = savedChariotTrailStepsRemaining;
+    chariotFlashUntil = savedChariotFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;
@@ -659,6 +690,7 @@ window.runOwlSmokeSpec = function() {
     if (typeof updateOwlUI === 'function') updateOwlUI();
     if (typeof updateTridentUI === 'function') updateTridentUI();
     if (typeof updateArrowUI === 'function') updateArrowUI();
+    if (typeof updateChariotUI === 'function') updateChariotUI();
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error

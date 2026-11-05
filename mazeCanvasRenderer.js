@@ -28,7 +28,8 @@ function drawMaze() {
                 const effectiveRadius = solarFlareStepsRemaining > 0 ? Math.max(baseRadius, SOLAR_FLARE_RADIUS) : baseRadius;
                 const inDecoyVision = isDecoyLureActive() && Math.hypot(mazeX - activeDecoy.x, mazeY - activeDecoy.y) <= DECOY_VISION_RADIUS;
                 const inArrowVision = arrowVisionStepsRemaining > 0 && Array.isArray(arrowTrail) && arrowTrail.some(t => Math.abs(mazeX - t.x) + Math.abs(mazeY - t.y) <= 2);
-                if (distToPlayer > effectiveRadius && !inDecoyVision && !inArrowVision) {
+                const inChariotVision = chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => Math.abs(mazeX - t.x) + Math.abs(mazeY - t.y) <= 2);
+                if (distToPlayer > effectiveRadius && !inDecoyVision && !inArrowVision && !inChariotVision) {
                     // Darken out-of-radius tiles
                     mazeGraphics.beginFill(0x001f3f, 0.3);
                     mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
@@ -69,7 +70,7 @@ function drawMaze() {
                     }
 
                     // Draw golden breadcrumb trail on visited tiles (excluding player, escape, keys, gates, torches, spools, passages, aegis shrines, hermes shrines, chronos shrines, daedalus shrines, chronos anchor, and uncollected Icarus shrines, and uncollected Athena shrines)
-                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(isDecoyLureActive() && activeDecoy.x === mazeX && activeDecoy.y === mazeY) && !athenaShrines.some(a => a.x === mazeX && a.y === mazeY) && !(Array.isArray(poseidonShrines) && poseidonShrines.some(p => p.x === mazeX && p.y === mazeY)) && !(Array.isArray(artemisShrines) && artemisShrines.some(a => a.x === mazeX && a.y === mazeY))) {
+                    if (visitedTiles.has(`${mazeX},${mazeY}`) && !(mazeX === playerX && mazeY === playerY) && !(mazeX === escapeX && mazeY === escapeY) && !keys.some(k => k.x === mazeX && k.y === mazeY) && !gates.some(g => g.x === mazeX && g.y === mazeY) && !isTorchTile(mazeX, mazeY) && !threadSpools.some(s => s.x === mazeX && s.y === mazeY) && !secretPassages.some(p => p.fromX === mazeX && p.fromY === mazeY) && !aegisShrines.some(a => a.x === mazeX && a.y === mazeY) && !hermesShrines.some(h => h.x === mazeX && h.y === mazeY) && !chronosShrines.some(c => c.x === mazeX && c.y === mazeY) && !daedalusShrines.some(d => d.x === mazeX && d.y === mazeY) && !(chronosAnchor && chronosAnchor.x === mazeX && chronosAnchor.y === mazeY) && !icarusShrines.some(ic => ic.x === mazeX && ic.y === mazeY) && !orpheusShrines.some(o => o.x === mazeX && o.y === mazeY) && !(Array.isArray(poseidonShrines) && poseidonShrines.some(p => p.x === mazeX && p.y === mazeY)) && !(Array.isArray(artemisShrines) && artemisShrines.some(a => a.x === mazeX && a.y === mazeY)) && !(Array.isArray(apolloShrines) && apolloShrines.some(ap => ap.x === mazeX && ap.y === mazeY))) {
                         mazeGraphics.beginFill(0xffd700, 0.65);
                         mazeGraphics.drawCircle(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 6);
                         mazeGraphics.endFill();
@@ -78,6 +79,13 @@ function drawMaze() {
                     // Draw inArrowVision tint on tiles within vision radius
                     if (inArrowVision) {
                         mazeGraphics.beginFill(0x99ffcc, 0.16);
+                        mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
+                        mazeGraphics.endFill();
+                    }
+
+                    // Draw inChariotVision tint on tiles within chariot trail vision radius
+                    if (inChariotVision) {
+                        mazeGraphics.beginFill(0xffaa22, 0.18);
                         mazeGraphics.drawRoundedRect(x * tileSize, y * tileSize, tileSize, tileSize, 6);
                         mazeGraphics.endFill();
                     }
@@ -287,6 +295,24 @@ function drawMaze() {
                     mazeGraphics.arc(cx - 1, cy, tileSize * 0.22, -Math.PI * 0.45, Math.PI * 0.45);
                     mazeGraphics.moveTo(cx - 4, cy);
                     mazeGraphics.lineTo(cx + 4, cy);
+                    mazeGraphics.lineStyle(0);
+                }
+
+                // Apollo Sun Chariot shrines
+                if (Array.isArray(apolloShrines) && apolloShrines.some(ap => ap.x === mazeX && ap.y === mazeY)) {
+                    const cx = x * tileSize + tileSize / 2;
+                    const cy = y * tileSize + tileSize / 2;
+                    mazeGraphics.beginFill(0xffaa00, 0.95);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.38);
+                    mazeGraphics.endFill();
+                    mazeGraphics.beginFill(0x7a1f00, 1);
+                    mazeGraphics.drawCircle(cx, cy, tileSize * 0.18);
+                    mazeGraphics.endFill();
+                    mazeGraphics.lineStyle(1.5, 0xfff099, 1);
+                    mazeGraphics.moveTo(cx - tileSize * 0.3, cy);
+                    mazeGraphics.lineTo(cx + tileSize * 0.3, cy);
+                    mazeGraphics.moveTo(cx, cy - tileSize * 0.3);
+                    mazeGraphics.lineTo(cx, cy + tileSize * 0.3);
                     mazeGraphics.lineStyle(0);
                 }
 
@@ -500,6 +526,9 @@ function drawMaze() {
         if (Array.isArray(artemisShrines) && artemisShrines.length > 0) {
             relicCandidates.push(...artemisShrines);
         }
+        if (Array.isArray(apolloShrines) && apolloShrines.length > 0) {
+            relicCandidates.push(...apolloShrines);
+        }
         for (const r of relicCandidates) {
             if (r.x >= startX && r.x < startX + visibleWidth && r.y >= startY && r.y < startY + visibleHeight) {
                 if (Math.max(Math.abs(r.x - playerX), Math.abs(r.y - playerY)) > effR) {
@@ -560,6 +589,22 @@ function drawMaze() {
                 mazeGraphics.endFill();
             }
         }
+    }
+
+    // Solar Chariot blazing trail & player aura
+    if ((chariotTrailStepsRemaining > 0 || Date.now() < chariotFlashUntil) && Array.isArray(chariotTrail)) {
+        for (const t of chariotTrail) {
+            if (t.x >= startX && t.x < startX + visibleWidth && t.y >= startY && t.y < startY + visibleHeight) {
+                mazeGraphics.beginFill(0xff8800, Date.now() < chariotFlashUntil ? 0.55 : 0.35);
+                mazeGraphics.drawRoundedRect((t.x - startX) * tileSize + 2, (t.y - startY) * tileSize + 2, tileSize - 4, tileSize - 4, 4);
+                mazeGraphics.endFill();
+            }
+        }
+    }
+    if (Date.now() < chariotFlashUntil) {
+        mazeGraphics.lineStyle(3, 0xffdd55, 0.95);
+        mazeGraphics.drawCircle(playerScreenCenterX, playerScreenCenterY, tileSize * 1.55);
+        mazeGraphics.lineStyle(0);
     }
 
     // Draw Minotaur

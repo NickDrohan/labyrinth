@@ -55,6 +55,7 @@ function triggerPhaseDash() {
     collectOwlAt(tx1, ty1);
     collectTridentAt(tx1, ty1);
     collectArrowAt(tx1, ty1);
+    collectChariotAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -97,6 +98,7 @@ function triggerPhaseDash() {
   onPlayerOwlStep();
   collectTridentAt(playerX, playerY);
   onPlayerArrowStep();
+  onPlayerChariotStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -135,6 +137,7 @@ function triggerPhaseDash() {
     if (collectOwlAt(playerX, playerY)) updateOwlUI();
     if (collectTridentAt(playerX, playerY)) updateTridentUI();
     if (collectArrowAt(playerX, playerY)) updateArrowUI();
+    if (collectChariotAt(playerX, playerY)) updateChariotUI();
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
@@ -150,11 +153,14 @@ function triggerPhaseDash() {
       updateOwlUI();
       updateTridentUI();
       updateArrowUI();
+      updateChariotUI();
       return true;
     }
     gameLost = true;
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
     const lo = document.getElementById('loseOverlay');
     if (lo) lo.style.display = 'flex';
     updateSpoolUI();
@@ -167,6 +173,7 @@ function triggerPhaseDash() {
     updateOwlUI();
     updateTridentUI();
     updateArrowUI();
+    updateChariotUI();
     drawMaze();
     return true;
   }
@@ -197,7 +204,10 @@ function triggerPhaseDash() {
     updateTridentUI();
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
     updateArrowUI();
+    updateChariotUI();
     drawMaze();
 
     return true;
@@ -266,11 +276,11 @@ function triggerChronosRecall() {
   }
   collectOwlAt(playerX, playerY);
   if (owlStepsRemaining > 0) refreshOwlEscapePreview();
-  showBannerMessage('Chronos Recall! Warped to anchor & Minotaur stunned for 5s!', 'rgba(110,30,160,0.92)');
-  collectTridentAt(playerX, playerY);
   collectArrowAt(playerX, playerY);
+  collectChariotAt(playerX, playerY);
   updateRecallUI();
   updateArrowUI();
+  updateChariotUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
@@ -282,6 +292,7 @@ function triggerChronosRecall() {
   drawMaze();
   return true;
 }
+
 function triggerWallBreach() {
   if (gameWon || gameLost || playerBreaches <= 0) return false;
   const tx = playerX + lastMoveDir.dx;
@@ -324,6 +335,7 @@ function triggerWallBreach() {
   onPlayerDecoyStep();
   onPlayerOwlStep();
   onPlayerArrowStep();
+  onPlayerChariotStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -353,6 +365,7 @@ function triggerWallBreach() {
   updateOwlUI();
   updateTridentUI();
   updateArrowUI();
+  updateChariotUI();
   drawMaze();
   return true;
 }

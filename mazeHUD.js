@@ -107,7 +107,7 @@ function updateBreachUI() {
 }
 
 function formatWinSummary() {
-  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0) + (playerArrows || 0);
+  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0) + (playerArrows || 0) + (playerChariots || 0);
   const score = Math.max(100, 5000 - steps * 2 + visitedTiles.size * 5 + bonusCharges * 150);
   return `You Escaped! Steps: ${steps} | Tiles: ${visitedTiles.size} | Score: ${score}`;
 }
@@ -137,6 +137,18 @@ function updateArrowUI() {
   const b = document.getElementById('arrowButton');
   if (b) {
     b.disabled = Boolean(playerArrows <= 0 || gameWon || gameLost);
+  }
+}
+
+function updateChariotUI() {
+  const c = document.getElementById('chariotCounter');
+  if (c) {
+    c.textContent = 'Chariots: ' + playerChariots + (chariotTrailStepsRemaining > 0 ? ' (Blaze: ' + chariotTrailStepsRemaining + ')' : ' (' + getDirectionArrow() + ')');
+    c.classList.toggle('ready', Boolean((playerChariots > 0 && typeof canChargeChariotInFacingDir === 'function' && canChargeChariotInFacingDir()) || chariotTrailStepsRemaining > 0));
+  }
+  const b = document.getElementById('chariotButton');
+  if (b) {
+    b.disabled = Boolean(playerChariots <= 0 || gameWon || gameLost);
   }
 }
 function updateRecallUI() {
