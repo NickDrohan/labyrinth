@@ -24,6 +24,10 @@
     <div id="flareCounter" class="counter">Flares: 0 (Off)</div>
     <div id="decoyCounter" class="counter">Decoys: 0 (Off)</div>
     <div id="owlCounter" class="counter">Owls: 0 (Off)</div>
+    <div id="tridentCounter" class="counter">Tridents: 0 (→)</div>
+    <div id="arrowCounter" class="counter">Arrows: 0 (→)</div>
+    <div id="chariotCounter" class="counter">Chariots: 0 (→)</div>
+    <div id="anvilCounter" class="counter">Anvils: 0 (Ready)</div>
     <button id="useSpoolButton" class="camera-btn" type="button" disabled>Use Thread (T)</button>
     <button id="repelButton" class="camera-btn" type="button" disabled>Aegis Pulse (R)</button>
     <button id="dashButton" class="camera-btn" type="button" disabled>Phase Dash (F)</button>
@@ -32,12 +36,19 @@
     <button id="flareButton" class="camera-btn" type="button" disabled>Solar Flare (Q)</button>
     <button id="decoyButton" class="camera-btn" type="button" disabled>Lure Minotaur (G)</button>
     <button id="owlButton" class="camera-btn" type="button" disabled>Owl Sight (V)</button>
+    <button id="tridentButton" class="camera-btn" type="button" disabled>Riptide Surge (C)</button>
+    <button id="arrowButton" class="camera-btn" type="button" disabled>Silver Arrow (X)</button>
+    <button id="chariotButton" class="camera-btn" type="button" disabled>Solar Chariot (Z)</button>
+    <button id="anvilButton" class="camera-btn" type="button" disabled>Drop Anvil (H)</button>
     <div id="legend" class="legend">Gold keys open blue gates
     <span class="secret-passage-icon">🌀</span> Secret passages: Swirling purple portals that teleport you to a distant location 🧵 Cyan spools: Press T or Use Thread for a 25-step Escape Compass; golden dots mark visited paths 🛡️ Emerald Aegis Shrines: Grant Shields (max 3) to survive a Minotaur hit or press R to repel & stun it 🪽 Golden Winged Sandals: Grant Phase Dashes (max 3); press F or Space to vault 2 tiles & phase through thin walls ⏳ Violet Chronos Hourglasses: Grant Recalls (max 3); press B once to set a Waypoint Anchor and B again to warp back & stun Minotaur 🔨 Crimson Daedalus Anvils: Grant Wall Breaches (max 3); ☀️ Amber Icarus Crystals: Grant Solar Flare (max 3); press Q for 20-step 22-tile vision, target beacons & 6s Minotaur blind
     🎵 Rose Orpheus Lyres: Grant Siren Decoys (max 3); press G to drop a 18-step acoustic lure that hijacks Minotaur pursuit & stuns it for 5s on contact
     🦉 Indigo Athena Owls: Grant Owl Sight (max 3); press V for 22-step Tactical Clairvoyance revealing the Escape path, Minotaur trajectory & nearby relics
-    </div>
-
+    🔱 Seafoam Poseidon Tridents: Grant Riptide Surges (max 3); press C to surf up to 6 corridor tiles, auto-collecting pickups & sweeping the Minotaur back
+    🏹 Silver Artemis Bows: Grant Silver Arrows (max 3); press X to fire a 14-tile piercing shot that illuminates corridors, retrieves pickups & pins the Minotaur (5.5s)
+    🛞 Gold Apollo Chariots: Grant Solar Chariots (max 3); press Z to charge up to 8 corridor tiles, leaving a 12-step blazing trail that stuns the Minotaur (5s) & auto-collecting pickups
+    🔥 Bronze Hephaestus Forges: Grant Molten Anvils (max 3); press H to drop a 22-step magma trap that erupts when the Minotaur approaches, stunning it (6.5s), hurling it back & blasting adjacent walls
+</div>
     <div id="winOverlay" class="win-overlay" style="display: none;">You escaped!</div>
     <div id="loseOverlay" class="lose-overlay" style="display: none;">You were caught!
         <button id="resetButton">Restart</button>
@@ -58,10 +69,13 @@
 <script src="mazeMobilityAbilities.js"></script>
 <script src="mazeMinotaurAI.js"></script>
 <script src="mazeAbilities.js"></script>
+<script src="mazeHUD.js"></script>
+<script src="mazeCanvasRenderer.js"></script>
 <script src="mazeRenderer.js"></script>
 <script src="mazeMobileControls.js"></script>
 <script src="mazeGameInit.js"></script>
 <script src="mazeController.js"></script>
+
 <script src="mazeThreadDiagnostics.js"></script>
 <script src="mazeDecoyDiagnostics.js"></script>
 <script src="mazeIntegrationDiagnostics.js"></script>

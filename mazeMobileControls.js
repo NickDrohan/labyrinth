@@ -93,6 +93,9 @@ function handleMobileMove(direction) {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
+        updateArrowUI();
+        updateChariotUI();
     }
 
     // Check if the new position is a gate
@@ -143,6 +146,9 @@ function handleMobileMove(direction) {
 
         onPlayerFlareStep();
 
+        collectHermesAt(playerX, playerY);
+        updateDashUI();
+
         // Increment steps and update step counter
         steps++;
         const sc = document.getElementById('stepCounter');
@@ -167,6 +173,13 @@ function handleMobileMove(direction) {
         }
         onPlayerDecoyStep();
         onPlayerOwlStep();
+
+        // Collect Poseidon trident at new position
+        collectTridentAt(playerX, playerY);
+        updateTridentUI();
+        onPlayerArrowStep();
+        onPlayerChariotStep();
+        onPlayerAnvilStep();
 
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
@@ -209,6 +222,18 @@ function handleMobileMove(direction) {
             if (owlStepsRemaining > 0) refreshOwlEscapePreview();
             updateOwlUI();
 
+            // Collect Poseidon trident at secret passage destination
+            collectTridentAt(playerX, playerY);
+            updateTridentUI();
+            collectArrowAt(playerX, playerY);
+            updateArrowUI();
+
+            // Collect any Hephaestus shrine at the teleport destination before continuing
+            if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+            if (collectChariotAt(playerX, playerY)) updateChariotUI();
+            collectAnvilAt(playerX, playerY);
+            updateAnvilUI();
+
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
             if (!visitedTiles.has(tileKey)) {
@@ -231,7 +256,7 @@ function handleMobileMove(direction) {
             showSecretPassageMessage();
 
             // Check if minotaur is at destination (lose condition)
-            if (playerX === minotaurX && playerY === minotaurY) {
+            if (minotaurActive && playerX === minotaurX && playerY === minotaurY) {
                 if (playerShields > 0) {
                     triggerAegisRepel(true);
                     updateDashUI();
@@ -239,17 +264,32 @@ function handleMobileMove(direction) {
                     updateFlareUI();
                     updateDecoyUI();
                     updateOwlUI();
+                    updateTridentUI();
+                    updateArrowUI();
+                    updateChariotUI();
+                    updateAnvilUI();
                     return;
                 }
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
                 updateRecallUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateChariotUI();
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+                updateAnvilUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -270,7 +310,7 @@ function handleMobileMove(direction) {
         }
 
         // Check for Minotaur collision (non-teleport step)
-        if (playerX === minotaurX && playerY === minotaurY) {
+        if (minotaurActive && playerX === minotaurX && playerY === minotaurY) {
             if (playerShields > 0) {
                 triggerAegisRepel(true);
                 updateDashUI();
@@ -278,29 +318,43 @@ function handleMobileMove(direction) {
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
+                updateChariotUI();
+                updateAnvilUI();
                 return;
             } else {
                 gameLost = true;
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
                 updateSpoolUI();
                 updateShieldUI();
                 updateDashUI();
                 updateRecallUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
+                updateChariotUI();
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+                updateAnvilUI();
                 const overlay = document.getElementById('loseOverlay');
-                if (overlay) overlay.style.display = 'flex';
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    // Preserve existing textContent so #resetButton child element remains intact
+                }
                 drawMaze();
                 return;
             }
         }
 
-        // Collect Hermes shrine on regular tile move
-        collectHermesAt(playerX, playerY);
-        updateDashUI();
-        updateBreachUI();
-
+        // Check if player reached the escape point
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
             compassStepsRemaining = 0;
@@ -309,32 +363,38 @@ function handleMobileMove(direction) {
             torchStepsRemaining = 0;
             activeDecoy = null;
             window.activeDecoy = null;
+            owlStepsRemaining = 0;
+            owlEscapePreview = [];
+            arrowVisionStepsRemaining = 0;
+            arrowTrail = [];
+            chariotTrailStepsRemaining = 0;
+            chariotTrail = [];
+            activeAnvilTrap = null;
+            window.activeAnvilTrap = null;
             const winOverlay = document.getElementById('winOverlay');
             if (winOverlay) {
                 winOverlay.textContent = formatWinSummary();
                 winOverlay.style.display = 'flex';
             }
             updateTorchIndicator();
+            updateAnvilUI();
             updateSpoolUI();
             updateShieldUI();
             updateDashUI();
             updateRecallUI();
+            updateOwlUI();
+            updateTridentUI();
+            updateArrowUI();
             updateBreachUI();
             updateFlareUI();
             updateDecoyUI();
-            owlStepsRemaining = 0;
-            owlEscapePreview = [];
             updateOwlUI();
+            updateChariotUI();
             drawMaze();
             return;
         }
+        drawMaze();
     }
 
-    // Check if the new position is a key
-    const keyIdx2 = keys.findIndex(k => k.x === newX && k.y === newY);
-    if (keyIdx2 !== -1) {
-        playerKeys++;
-        keys.splice(keyIdx2, 1);
-        document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
-    }
+
 }
