@@ -233,33 +233,7 @@ function drawFpHud(g) {
     }
 }
 
-function renderFirstPersonScene(targetGraphics) {
-    const g = targetGraphics || fpGraphics;
-    g.clear();
-    const d = lastMoveDir || { dx: 1, dy: 0 };
-    const dirX = (d.dx === 0 && d.dy === 0) ? 1 : d.dx;
-    const dirY = (d.dx === 0 && d.dy === 0) ? 0 : d.dy;
-    const planeX = -dirY * 0.66;
-    const planeY = dirX * 0.66;
-    const rays = new Array(100);
-    const zBuffer = new Array(100);
-    for (let col = 0; col < 100; col++) {
-        const camX = 2 * (col + 0.5) / 100 - 1;
-        const ray = castFpRay(dirX, dirY, planeX, planeY, camX);
-        rays[col] = ray;
-        zBuffer[col] = ray.perpDist;
-    }
-    drawFpWorld(g, rays);
-    const visibleSprites = drawFpSprites(g, zBuffer, dirX, dirY, planeX, planeY);
-    drawFpHud(g);
-    lastFpFrameSummary.raysCast = 100;
-    lastFpFrameSummary.visibleSprites = visibleSprites;
-    lastFpFrameSummary.frontWallDist = rays[50].perpDist;
-    lastFpFrameSummary.facing = getFacingCardinal();
-    lastFpFrameSummary.mode = viewMode;
-    return lastFpFrameSummary;
-}
-window.renderFirstPersonScene = renderFirstPersonScene;
+
 
 function renderFirstPersonAndMinimap() {
     fpGraphics.clear();

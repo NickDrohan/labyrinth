@@ -124,6 +124,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const winOverlayEl = document.getElementById('winOverlay');
+    if (winOverlayEl) {
+        winOverlayEl.title = 'Click to play again';
+        winOverlayEl.style.cursor = 'pointer';
+        winOverlayEl.addEventListener('click', function() {
+            if (!gameWon) return;
+            initGame();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
     // Add click listener for view mode toggle button
     const toggleViewBtn = document.getElementById('toggleViewButton');
     if (toggleViewBtn) {
