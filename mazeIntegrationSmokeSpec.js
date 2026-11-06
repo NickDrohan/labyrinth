@@ -1141,6 +1141,8 @@ window.runIntegrationSmokeSpec = function() {
         winRuleFound
       });
 
+      window.lastI13Detail = i13Detail;
+
       // Test reset behavior
       const savedPassagesI13 = secretPassages.map(p => ({ ...p }));
       let testBreachTile = null;
