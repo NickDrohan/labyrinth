@@ -159,7 +159,7 @@ function formatWinSummary() {
   const bonusCharges = (playerSpools || 0) + (playerShields || 0) + (playerDashes || 0) + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0) + (playerArrows || 0) + (playerChariots || 0) + (playerAnvils || 0);
   const rawScore = 5000 - steps * 5 + uniqueCount * 10 + bonusCharges * 150;
   const score = Math.max(100, rawScore);
-  return 'You Escaped! | Steps: ' + steps + ' | Tiles Explored: ' + uniqueCount + ' | Score: ' + score;
+  return 'You Escaped! | Steps: ' + steps + ' | Tiles Explored: ' + uniqueCount + ' | Score: ' + score + ' | Click to Play Again';
 }
 
 function updateRecallUI() {

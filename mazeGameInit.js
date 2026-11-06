@@ -1,6 +1,95 @@
 
 
-// Move the initialization code to the bottom of the file
+function minotaurTick() {
+    if (gameWon || gameLost) return;
+
+    if (Date.now() < minotaurStunnedUntil) {
+        updateShieldUI();
+        drawMaze();
+        return;
+    }
+
+    const lure = advanceMinotaurLure();
+    if (lure.moved) {
+        steps++;
+        const stepCounter = document.getElementById('stepCounter');
+        if (stepCounter) stepCounter.textContent = 'Steps: ' + steps;
+    }
+
+    if (minotaurPath.length === 0 && minotaurActive && !(minotaurX === playerX && minotaurY === playerY)) {
+        rebuildMinotaurPursuit();
+    }
+
+    sanitizeMinotaurPath();
+
+    if (minotaurPath.length > 0) {
+        const next = minotaurPath.shift();
+        minotaurX = next.x;
+        minotaurY = next.y;
+        steps++;
+        const stepCounter = document.getElementById('stepCounter');
+        if (stepCounter) stepCounter.textContent = 'Steps: ' + steps;
+
+        if (playerX === minotaurX && playerY === minotaurY) {
+            if (playerShields > 0) {
+                triggerAegisRepel(true);
+            } else {
+                gameLost = true;
+                // Clear active arrow/chariot/anvil state
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+
+                // Update all HUD counters
+                updateSpoolUI();
+                updateShieldUI();
+                updateDashUI();
+                updateRecallUI();
+                updateBreachUI();
+                updateDecoyUI();
+                updateAnvilUI();
+                updateFlareUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
+                updateChariotUI();
+
+                // Display lose overlay
+                const loseOverlay = document.getElementById('loseOverlay');
+                if (loseOverlay) loseOverlay.style.display = 'flex';
+
+                drawMaze();
+                return;
+            }
+        }
+    }
+
+    // Scorch check for chariot trail
+    if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
+        minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+        chariotTrailStepsRemaining = 0;
+        chariotTrail = [];
+        showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
+        updateChariotUI();
+        updateShieldUI();
+        drawMaze();
+        return;
+    }
+
+    checkMinotaurAnvilTrap();
+    updateShieldUI();
+    drawMaze();
+}
+
+function startMinotaurLoop() {
+    clearInterval(minotaurInterval);
+    minotaurInterval = setInterval(minotaurTick, 250);
+    return minotaurInterval;
+}
+
 function initGame() {
     // Hide secret passage message and clear timeout on reset
     const secretPassageMessageEl = document.getElementById('secretPassageMessage');
@@ -10,6 +99,50 @@ function initGame() {
             clearTimeout(secretPassageMsgTimeout);
             secretPassageMsgTimeout = null;
         }
+    }
+
+    // Lazily create and append overlay stylesheet if missing
+    if (!document.getElementById('labyrinthOverlayStyles') && document.head) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'labyrinthOverlayStyles';
+        styleEl.textContent = `
+            .win-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 25, 15, 0.88);
+                color: #00ff88;
+                font-family: Arial, sans-serif;
+                font-size: 1.8rem;
+                font-weight: bold;
+                text-align: center;
+                padding: 20px;
+                box-sizing: border-box;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+                cursor: pointer;
+                display: none;
+            }
+            .lose-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                color: #FFD700;
+                font-family: Arial, sans-serif;
+                font-size: 2rem;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+                display: none;
+            }
+        `;
+        document.head.appendChild(styleEl);
     }
 
     gameWon = false;
@@ -289,81 +422,7 @@ function initGame() {
     setupMobileControls(); // Initialize mobile controls
 
     // Start minotaur behavior
-    minotaurInterval = setInterval(() => {
-        if (gameWon || gameLost) {
-            return; // Skip minotaur movement if game is won or lost
-        }
-        if (Date.now() < minotaurStunnedUntil) {
-            updateShieldUI();
-            drawMaze();
-            return;
-        }
-        const lure = advanceMinotaurLure();
-        if (lure.status !== 'none') {
-            if (lure.moved) {
-                steps++;
-                stepCount = steps;
-                document.getElementById('stepCounter').textContent = `Steps: ${steps}`;
-            }
-            return;
-        }
-        if (minotaurPath.length === 0 && minotaurActive && !(minotaurX === playerX && minotaurY === playerY)) rebuildMinotaurPursuit();
-        sanitizeMinotaurPath();
-        if (minotaurPath.length > 0) {
-            const nextPosition = minotaurPath.shift(); // Use shift to move towards the user
-            if (nextPosition) {
-                minotaurX = nextPosition.x;
-                minotaurY = nextPosition.y;
-                steps++;
-                stepCount = steps;
-                document.getElementById('stepCounter').textContent = `Steps: ${steps}`; // Update step counter
-
-                // Check for collision with the user
-                if (minotaurX === playerX && minotaurY === playerY) {
-                    if (playerShields > 0) {
-                        triggerAegisRepel(true);
-                        return;
-                    }
-                    gameLost = true;
-                    arrowVisionStepsRemaining = 0;
-                    arrowTrail = [];
-                    chariotTrailStepsRemaining = 0;
-                    chariotTrail = [];
-                    activeAnvilTrap = null;
-                    window.activeAnvilTrap = null;
-                    updateSpoolUI();
-                    updateShieldUI();
-                    updateDashUI();
-                    updateRecallUI();
-                    updateBreachUI();
-                    updateFlareUI();
-                    updateDecoyUI();
-                    updateOwlUI();
-                    updateTridentUI();
-                    updateArrowUI();
-                    updateChariotUI();
-                    updateAnvilUI();
-                    const overlay = document.getElementById('loseOverlay');
-                    if (overlay) {
-                        overlay.style.display = 'flex';
-                    }
-                    drawMaze();
-                    return;
-                }
-
-                if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
-                    minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
-                    chariotTrailStepsRemaining = 0;
-                    chariotTrail = [];
-                    showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
-                    updateChariotUI();
-                }
-                checkMinotaurAnvilTrap();
-                updateShieldUI();
-                drawMaze();
-            }
-        }
-    }, 250); // Move 4 times per second (1000ms / 4 = 250ms)
+    startMinotaurLoop();
 
     const keydownGen = (window._keydownGen = (window._keydownGen || 0) + 1);
     document.addEventListener('keydown', (event) => {

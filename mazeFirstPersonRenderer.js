@@ -235,9 +235,38 @@ function drawFpHud(g) {
 
 
 
+function toggleViewMode(forceMode) {
+    if (forceMode === 'fp' || forceMode === 'map') {
+        viewMode = forceMode;
+    } else {
+        viewMode = (viewMode === 'fp') ? 'map' : 'fp';
+    }
+    window.viewMode = viewMode;
+
+    const toggleViewBtn = document.getElementById('toggleViewButton');
+    if (toggleViewBtn) {
+        toggleViewBtn.textContent = (viewMode === 'fp') 
+            ? 'View: 3D + Minimap (M)' 
+            : 'View: Overhead Map (M)';
+    }
+
+    if (typeof drawMaze === 'function') drawMaze();
+    return viewMode;
+}
+
+
 function renderFirstPersonAndMinimap() {
+    // Lazily create and attach minimap mask if missing
+    if (!fpGraphics._minimapMask) {
+        fpGraphics._minimapMask = new PIXI.Graphics();
+    }
+    if (!fpGraphics._minimapMask.parent && pixiApp && pixiApp.stage) {
+        pixiApp.stage.addChild(fpGraphics._minimapMask);
+    }
+
     fpGraphics.clear();
     minimapFrameGraphics.clear();
+
     const d = lastMoveDir || { dx: 1, dy: 0 };
     const dirX = (d.dx === 0 && d.dy === 0) ? 1 : d.dx;
     const dirY = (d.dx === 0 && d.dy === 0) ? 0 : d.dy;
@@ -260,6 +289,12 @@ function renderFirstPersonAndMinimap() {
         minimapFrameGraphics.visible = false;
         mazeGraphics.scale.set(1);
         mazeGraphics.position.set(0, 0);
+        // Clear and hide minimap mask before setting mazeGraphics.mask = null (baseline ordering)
+        if (fpGraphics._minimapMask) {
+            fpGraphics._minimapMask.clear();
+            fpGraphics._minimapMask.visible = false;
+        }
+        mazeGraphics.mask = null;
         lastFpFrameSummary.visibleSprites = 0;
         return;
     }
@@ -275,17 +310,15 @@ function renderFirstPersonAndMinimap() {
     minimapFrameGraphics.lineStyle(0);
     mazeGraphics.scale.set(0.275);
     mazeGraphics.position.set(568, 12);
-}
 
-function toggleViewMode(forceMode) {
-    viewMode = (forceMode === 'fp' || forceMode === 'map') ? forceMode : (viewMode === 'fp' ? 'map' : 'fp');
-    window.viewMode = viewMode;
-    const btn = document.getElementById('toggleViewButton');
-    if (btn) {
-        btn.textContent = viewMode === 'fp' ? 'View: 3D + Minimap (M)' : 'View: Overhead Map (M)';
-    }
-    drawMaze();
-    return viewMode;
+    // Apply minimap mask in fp mode
+    // Clear mask first, then draw with specified geometry, set visible, then assign to mazeGraphics.mask
+    fpGraphics._minimapMask.clear();
+    fpGraphics._minimapMask.beginFill(0xffffff, 1);
+    fpGraphics._minimapMask.drawRoundedRect(568, 12, 220, 220, 6);
+    fpGraphics._minimapMask.endFill();
+    fpGraphics._minimapMask.visible = true;
+    mazeGraphics.mask = fpGraphics._minimapMask;
 }
 
 function getFirstPersonState() {
@@ -301,6 +334,7 @@ function getFirstPersonState() {
         frontWallDist: lastFpFrameSummary.frontWallDist,
         minimapScale: mazeGraphics.scale.x,
         minimapX: mazeGraphics.x,
-        minimapY: mazeGraphics.y
+        minimapY: mazeGraphics.y,
+        minimapMasked: Boolean(mazeGraphics.mask)
     };
 }

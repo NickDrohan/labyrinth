@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
         msgDiv.style.pointerEvents = 'none';
         document.body.appendChild(msgDiv);
     }
+    
     // Call initGame instead of individual initialization calls
     initGame();
 
@@ -345,11 +346,11 @@ window.activateThreadCompass = activateThreadCompass;
 window.triggerOwlClairvoyance = triggerOwlClairvoyance;
 window.triggerRiptideSurge = triggerRiptideSurge;
 window.triggerSilverArrow = triggerSilverArrow;
-window.triggerSolarChariot = triggerSolarChariot;
-window.triggerMoltenAnvil = triggerMoltenAnvil;
+window.renderFirstPersonAndMinimap = renderFirstPersonAndMinimap;
 window.toggleViewMode = toggleViewMode;
 window.getFirstPersonState = getFirstPersonState;
-window.renderFirstPersonAndMinimap = renderFirstPersonAndMinimap;
+window.minotaurTick = minotaurTick;
+window.startMinotaurLoop = startMinotaurLoop;
 
 let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);
