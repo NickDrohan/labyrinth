@@ -103,18 +103,7 @@ function initGame() {
 
     gameWon = false;
     gameLost = false;
-    const winOverlayEl = document.getElementById('winOverlay');
-    winOverlayEl.classList.add('win-overlay');
-    winOverlayEl.style.position = 'fixed';
-    winOverlayEl.style.top = '0';
-    winOverlayEl.style.left = '0';
-    winOverlayEl.style.width = '100%';
-    winOverlayEl.style.height = '100%';
-    winOverlayEl.style.zIndex = '1000';
-    winOverlayEl.style.justifyContent = 'center';
-    winOverlayEl.style.alignItems = 'center';
-    winOverlayEl.style.display = 'none';
-    document.getElementById('loseOverlay').style.display = 'none';
+    document.getElementById('winOverlay').style.display = 'none';    document.getElementById('loseOverlay').style.display = 'none';
 
     visitedTiles.clear();
     visitedTiles.add(`${playerX},${playerY}`);

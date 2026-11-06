@@ -104,6 +104,8 @@ window.runThreadSmokeSpec = function() {
         consoleErrors.push(args.map(a => String(a)).join(' '));
         return origConsoleError.apply(console, args);
     };
+    const onWinError = e => consoleErrors.push('window.error: ' + (e && e.message ? e.message : String(e)) + (e && e.filename ? ' @' + e.filename + ':' + e.lineno : ''));
+    window.addEventListener('error', onWinError);
 
     // Snapshot all mutable state before running checks
     const savedPlayerX = playerX;
@@ -529,6 +531,7 @@ window.runThreadSmokeSpec = function() {
         if (typeof updateAnvilUI === 'function') updateAnvilUI();
         drawMaze();
         // Restore console.error
+        window.removeEventListener('error', onWinError);
         console.error = origConsoleError;
     }
 };

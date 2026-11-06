@@ -8,6 +8,9 @@ window.runDecoySmokeSpec = function() {
     return origConsoleError.apply(console, args);
   };
 
+  const onWinError = e => consoleErrors.push('window.error: ' + (e && e.message ? e.message : String(e)) + (e && e.filename ? ' @' + e.filename + ':' + e.lineno : ''));
+  window.addEventListener('error', onWinError);
+
   // Scalar globals
   const savedPlayerX = playerX;
   const savedPlayerY = playerY;
@@ -404,6 +407,7 @@ window.runDecoySmokeSpec = function() {
     if (typeof updateChariotUI === 'function') updateChariotUI();
     if (typeof updateAnvilUI === 'function') updateAnvilUI();
     if (typeof drawMaze === 'function') drawMaze();
+    window.removeEventListener('error', onWinError);
     console.error = origConsoleError;
   }
   return { D1, D2, D3, D4, D5, D6, consoleErrors };
@@ -416,6 +420,9 @@ window.runOwlSmokeSpec = function() {
     consoleErrors.push(args.map(a => String(a)).join(' '));
     return origConsoleError.apply(console, args);
   };
+
+  const onWinError = e => consoleErrors.push('window.error: ' + (e && e.message ? e.message : String(e)) + (e && e.filename ? ' @' + e.filename + ':' + e.lineno : ''));
+  window.addEventListener('error', onWinError);
 
   // Snapshot all scalar globals
   const savedPlayerX = playerX;
@@ -726,6 +733,7 @@ window.runOwlSmokeSpec = function() {
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error
+    window.removeEventListener('error', onWinError);
     console.error = origConsoleError;
   }
 
