@@ -653,6 +653,8 @@ function initGame() {
                 // Check if player reached escape tile
                 if (playerX === escapeX && playerY === escapeY) {
                     gameWon = true;
+                    clearInterval(minotaurInterval);
+                    minotaurInterval = null;
                     activeDecoy = null;
                     window.activeDecoy = null;
                     updateDecoyUI();

@@ -188,6 +188,7 @@ function triggerPhaseDash() {
   if (playerX === escapeX && playerY === escapeY) {
     gameWon = true;
     clearInterval(minotaurInterval);
+    minotaurInterval = null;
     torchActive = false; torchStepsRemaining = 0; compassStepsRemaining = 0;
     const wo = document.getElementById('winOverlay');
     if (wo) {

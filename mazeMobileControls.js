@@ -359,6 +359,8 @@ function handleMobileMove(direction) {
         // Check if player reached the escape point
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
+            clearInterval(minotaurInterval);
+            minotaurInterval = null;
             compassStepsRemaining = 0;
             solarFlareStepsRemaining = 0;
             torchActive = false;

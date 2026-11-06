@@ -307,6 +307,7 @@ function triggerRiptideSurge() {
   if (playerX === escapeX && playerY === escapeY) {
     gameWon = true;
     clearInterval(minotaurInterval);
+    minotaurInterval = null;
     compassStepsRemaining = 0;
     solarFlareStepsRemaining = 0;
     torchActive = false;
@@ -624,6 +625,7 @@ function triggerSolarChariot() {
   if (playerX === escapeX && playerY === escapeY) {
     gameWon = true;
     clearInterval(minotaurInterval);
+    minotaurInterval = null;
     compassStepsRemaining = 0;
     solarFlareStepsRemaining = 0;
     torchActive = false;

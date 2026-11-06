@@ -110,6 +110,7 @@ window.runThreadSmokeSpec = function() {
     // Snapshot all mutable state before running checks
     const savedPlayerX = playerX;
     const savedPlayerY = playerY;
+    const savedMinotaurLoopRunning = minotaurInterval !== null;
     const savedEscapeX = escapeX;
     const savedEscapeY = escapeY;
     const savedPlayerSpools = playerSpools;
@@ -529,6 +530,9 @@ window.runThreadSmokeSpec = function() {
         if (typeof updateArrowUI === 'function') updateArrowUI();
         if (typeof updateChariotUI === 'function') updateChariotUI();
         if (typeof updateAnvilUI === 'function') updateAnvilUI();
+        if (savedMinotaurLoopRunning && minotaurInterval === null && typeof startMinotaurLoop === 'function') {
+            startMinotaurLoop();
+        }
         drawMaze();
         // Restore console.error
         window.removeEventListener('error', onWinError);
