@@ -129,8 +129,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (winOverlayEl) {
         winOverlayEl.title = 'Click to play again';
         winOverlayEl.style.cursor = 'pointer';
-        winOverlayEl.style.position = 'fixed';
-        winOverlayEl.style.zIndex = '1000';
         winOverlayEl.addEventListener('click', function() {
             if (!gameWon) return;
             initGame();

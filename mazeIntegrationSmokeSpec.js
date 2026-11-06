@@ -1181,7 +1181,6 @@ window.runIntegrationSmokeSpec = function() {
   }
   // Restore all state in finally
   finally {
-    window.removeEventListener('error', onWinError);
     // Helper functions for restoring collections
     function restoreArray(target, saved) {
       target.length = 0;
@@ -1343,6 +1342,7 @@ window.runIntegrationSmokeSpec = function() {
     }
     if (typeof toggleViewMode === 'function') toggleViewMode(savedViewMode || 'fp');
     drawMaze();
+    window.removeEventListener('error', onWinError);
     console.error = origConsoleError;
   }
 

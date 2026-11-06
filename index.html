@@ -5,19 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Labyrinth</title>
     <link rel="stylesheet" href="styles.css">
-    <style>
-        .win-overlay, .lose-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
-        }
-    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.2/pixi.min.js"></script>
 </head>
 <body>
@@ -56,10 +43,10 @@
             <button id="chariotButton" class="ability-btn">Chariot</button>
             <button id="anvilButton" class="ability-btn">Anvil</button>
         </div>
-        <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
-        <div id="winOverlay" class="win-overlay" style="display: none; position: fixed; z-index: 1000;">You Escaped!</div>
-        <div id="loseOverlay" class="lose-overlay" style="display: none; position: fixed; z-index: 1000;"><div>Game Over!<br><button id="resetButton" type="button">Play Again</button></div></div>
-        <div class="camera-controls">
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
+            <div id="winOverlay" class="win-overlay" style="display: none;">You Escaped!</div>
+            <div id="loseOverlay" class="lose-overlay" style="display: none;"><div>Game Over!<br><button id="resetButton" type="button">Play Again</button></div></div>
             <div id="centerCameraButton" class="camera-btn">Center Camera</div>
             <div id="edgeCameraButton" class="camera-btn">Edge Camera</div>
             <button id="toggleViewButton" class="camera-btn" type="button">View: 3D + Minimap (M)</button>
