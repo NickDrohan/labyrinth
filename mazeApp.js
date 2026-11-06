@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
         msgDiv.style.pointerEvents = 'none';
         document.body.appendChild(msgDiv);
     }
+    
     // Call initGame instead of individual initialization calls
     initGame();
 
@@ -92,6 +93,57 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+    const tridentBtn = document.getElementById('tridentButton');
+    if (tridentBtn) {
+        tridentBtn.addEventListener('click', function() {
+            triggerRiptideSurge();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
+    const arrowBtn = document.getElementById('arrowButton');
+    if (arrowBtn) {
+        arrowBtn.addEventListener('click', function() {
+            triggerSilverArrow();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
+    const chariotBtn = document.getElementById('chariotButton');
+    if (chariotBtn) {
+        chariotBtn.addEventListener('click', function() {
+            triggerSolarChariot();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
+    const anvilBtn = document.getElementById('anvilButton');
+    if (anvilBtn) {
+        anvilBtn.addEventListener('click', function() {
+            triggerMoltenAnvil();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
+    const winOverlayEl = document.getElementById('winOverlay');
+    if (winOverlayEl) {
+        winOverlayEl.title = 'Click to play again';
+        winOverlayEl.style.cursor = 'pointer';
+        winOverlayEl.addEventListener('click', function() {
+            if (!gameWon) return;
+            initGame();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
+
+    // Add click listener for view mode toggle button
+    const toggleViewBtn = document.getElementById('toggleViewButton');
+    if (toggleViewBtn) {
+        toggleViewBtn.addEventListener('click', function() {
+            if (typeof toggleViewMode === 'function') toggleViewMode();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -107,9 +159,17 @@ const pixiApp = new PIXI.Application({
     backgroundColor: 0x000000,
     autoStart: false
 });
+const fpGraphics = new PIXI.Graphics();
+const minimapFrameGraphics = new PIXI.Graphics();
 const mazeGraphics = new PIXI.Graphics();
+pixiApp.stage.addChild(fpGraphics);
+pixiApp.stage.addChild(minimapFrameGraphics);
 pixiApp.stage.addChild(mazeGraphics);
 const tileSize = 16; // Size of each tile
+let viewMode = 'fp';
+window.viewMode = viewMode;
+let lastFpFrameSummary = { raysCast: 0, visibleSprites: 0, frontWallDist: 0, facing: 'E', mode: 'fp' };
+window.lastFpFrameSummary = lastFpFrameSummary;
 const visibleWidth = 50; // Number of tiles to display in width
 const visibleHeight = 50; // Number of tiles to display in height
 
@@ -154,6 +214,7 @@ const MAX_BREACHES = 3;
 const DAEDALUS_SHRINE_COUNT = 16;
 const BREACH_STUN_MS = 4000;
 let breachFlashUntil = 0;
+
 let icarusShrines = [];
 window.icarusShrines = icarusShrines;
 let playerFlares = 0;
@@ -188,6 +249,56 @@ const OWL_GLARE_STUN_MS = 3000;
 let owlStepsRemaining = 0;
 let owlFlashUntil = 0;
 let owlEscapePreview = [];
+
+let poseidonShrines = [];
+window.poseidonShrines = poseidonShrines;
+let playerTridents = 0;
+const MAX_TRIDENTS = 3;
+const POSEIDON_SHRINE_COUNT = 16;
+const RIPTIDE_MAX_STEPS = 6;
+const RIPTIDE_STUN_MS = 4000;
+const RIPTIDE_PUSH_STEPS = 8;
+let riptideTrail = [];
+let riptideFlashUntil = 0;
+
+let artemisShrines = [];
+window.artemisShrines = artemisShrines;
+let playerArrows = 0;
+const MAX_ARROWS = 3;
+const ARTEMIS_SHRINE_COUNT = 16;
+const ARROW_MAX_RANGE = 14;
+const ARROW_VISION_STEPS = 10;
+const ARROW_STUN_MS = 5500;
+const ARROW_PUSH_STEPS = 6;
+let arrowVisionStepsRemaining = 0;
+let arrowTrail = [];
+let arrowFlashUntil = 0;
+
+let apolloShrines = [];
+window.apolloShrines = apolloShrines;
+let playerChariots = 0;
+const MAX_CHARIOTS = 3;
+const APOLLO_SHRINE_COUNT = 16;
+const CHARIOT_MAX_STEPS = 8;
+const CHARIOT_TRAIL_STEPS = 12;
+const CHARIOT_STUN_MS = 5000;
+const CHARIOT_PUSH_STEPS = 7;
+let chariotTrail = [];
+let chariotTrailStepsRemaining = 0;
+let chariotFlashUntil = 0;
+
+let hephaestusShrines = [];
+window.hephaestusShrines = hephaestusShrines;
+let playerAnvils = 0;
+const MAX_ANVILS = 3;
+const HEPHAESTUS_SHRINE_COUNT = 16;
+const ANVIL_TRAP_STEPS = 22;
+const ANVIL_VISION_RADIUS = 3;
+const ANVIL_STUN_MS = 6500;
+const ANVIL_PUSH_STEPS = 9;
+let activeAnvilTrap = null;
+window.activeAnvilTrap = activeAnvilTrap;
+let anvilFlashUntil = 0;
 
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
@@ -227,32 +338,25 @@ window.triggerChronosRecall = triggerChronosRecall;
 
 window.triggerWallBreach = triggerWallBreach;
 window.triggerSolarFlare = triggerSolarFlare;
-
 let _pathParent = null, _pathStamp = null, _pathQueue = null, _pathGen = 0;
 
 window.triggerSirenDecoy = triggerSirenDecoy;
 window.advanceMinotaurLure = advanceMinotaurLure;
 window.activateThreadCompass = activateThreadCompass;
 window.triggerOwlClairvoyance = triggerOwlClairvoyance;
-// Generate the maze
-let cameraMode = "center";
+window.triggerRiptideSurge = triggerRiptideSurge;
+window.triggerSilverArrow = triggerSilverArrow;
+window.renderFirstPersonAndMinimap = renderFirstPersonAndMinimap;
+window.toggleViewMode = toggleViewMode;
+window.getFirstPersonState = getFirstPersonState;
+window.minotaurTick = minotaurTick;
+window.startMinotaurLoop = startMinotaurLoop;
+
+let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);
 
-// Ensure the player starts on a valid path
-
-// Generate the maze
-
-
-// Ensure the player starts on a valid path
-while (maze[playerY][playerX] !== 1) {
-    playerX = Math.floor(Math.random() * 1000);
-    playerY = Math.floor(Math.random() * 1000);
-}
-
-
-// Add this to your initialization code
-initMobileControls();
-// Restart button on the defeat overlay reloads the game
 document.getElementById('resetButton').addEventListener('click', () => {
-    window.location.reload();
+    initGame();
 });
+
+initMobileControls();

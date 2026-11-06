@@ -110,9 +110,9 @@ function placeHermesShrines() {
   }
 
   // Deterministic ring fallback: at least 3 shrines within Manhattan distance <= 35
-  for (let d = 6; d <= 35 && hermesShrines.length < 12; d++) {
+  for (let d = 6; d <= 35 && hermesShrines.length < 3; d++) {
     const foundInRing = [];
-    for (let x = playerX - d; x <= playerX + d && hermesShrines.length < 12; x++) {
+    for (let x = playerX - d; x <= playerX + d && hermesShrines.length < 3; x++) {
       const y1 = playerY + (d - Math.abs(x - playerX));
       const y2 = playerY - (d - Math.abs(x - playerX));
       for (const cy of [y1, y2]) {
