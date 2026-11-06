@@ -114,6 +114,8 @@ function handleMobileMove(direction) {
             // Block movement and give feedback - brief color flash
             document.body.style.backgroundColor = '#FF0000';
             setTimeout(() => { document.body.style.backgroundColor = ''; }, 50);
+            // Redraw the maze to update 3D view and minimap chevron when turning toward locked gate
+            drawMaze();
             return;
         }
     }
@@ -394,7 +396,7 @@ function handleMobileMove(direction) {
             return;
         }
         drawMaze();
+    } else {
+        drawMaze();
     }
-
-
 }

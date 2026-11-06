@@ -123,6 +123,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+
+    // Add click listener for view mode toggle button
+    const toggleViewBtn = document.getElementById('toggleViewButton');
+    if (toggleViewBtn) {
+        toggleViewBtn.addEventListener('click', function() {
+            if (typeof toggleViewMode === 'function') toggleViewMode();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -138,9 +147,17 @@ const pixiApp = new PIXI.Application({
     backgroundColor: 0x000000,
     autoStart: false
 });
+const fpGraphics = new PIXI.Graphics();
+const minimapFrameGraphics = new PIXI.Graphics();
 const mazeGraphics = new PIXI.Graphics();
+pixiApp.stage.addChild(fpGraphics);
+pixiApp.stage.addChild(minimapFrameGraphics);
 pixiApp.stage.addChild(mazeGraphics);
 const tileSize = 16; // Size of each tile
+let viewMode = 'fp';
+window.viewMode = viewMode;
+let lastFpFrameSummary = { raysCast: 0, visibleSprites: 0, frontWallDist: 0, facing: 'E', mode: 'fp' };
+window.lastFpFrameSummary = lastFpFrameSummary;
 const visibleWidth = 50; // Number of tiles to display in width
 const visibleHeight = 50; // Number of tiles to display in height
 
@@ -319,6 +336,9 @@ window.triggerRiptideSurge = triggerRiptideSurge;
 window.triggerSilverArrow = triggerSilverArrow;
 window.triggerSolarChariot = triggerSolarChariot;
 window.triggerMoltenAnvil = triggerMoltenAnvil;
+window.toggleViewMode = toggleViewMode;
+window.getFirstPersonState = getFirstPersonState;
+window.renderFirstPersonAndMinimap = renderFirstPersonAndMinimap;
 
 let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);

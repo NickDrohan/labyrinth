@@ -48,7 +48,8 @@
     🏹 Silver Artemis Bows: Grant Silver Arrows (max 3); press X to fire a 14-tile piercing shot that illuminates corridors, retrieves pickups & pins the Minotaur (5.5s)
     🛞 Gold Apollo Chariots: Grant Solar Chariots (max 3); press Z to charge up to 8 corridor tiles, leaving a 12-step blazing trail that stuns the Minotaur (5s) & auto-collecting pickups
     🔥 Bronze Hephaestus Forges: Grant Molten Anvils (max 3); press H to drop a 22-step magma trap that erupts when the Minotaur approaches, stunning it (6.5s), hurling it back & blasting adjacent walls
-</div>
+    🧭 First-Person View: walk corridors in 3D with a live minimap (top-right); press M or the View button for the full Overhead Map
+    </div>
     <div id="winOverlay" class="win-overlay" style="display: none;">You escaped!</div>
     <div id="loseOverlay" class="lose-overlay" style="display: none;">You were caught!
         <button id="resetButton">Restart</button>
@@ -56,6 +57,7 @@
 
     <div id="centerCameraButton" class="camera-btn">Center Camera</div>
     <div id="edgeCameraButton" class="camera-btn">Edge Camera</div>
+    <button id="toggleViewButton" class="camera-btn" type="button">View: 3D + Minimap (M)</button>
 
     <div class="mobile-controls">
         <button class="mobile-btn" data-direction="up">↑</button>
@@ -70,6 +72,8 @@
 <script src="mazeMinotaurAI.js"></script>
 <script src="mazeAbilities.js"></script>
 <script src="mazeHUD.js"></script>
+<script src="mazeOverheadRenderer.js"></script>
+<script src="mazeFirstPersonRenderer.js"></script>
 <script src="mazeCanvasRenderer.js"></script>
 <script src="mazeRenderer.js"></script>
 <script src="mazeMobileControls.js"></script>

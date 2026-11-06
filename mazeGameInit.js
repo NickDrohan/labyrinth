@@ -60,6 +60,11 @@ function initGame() {
     recallFlashUntil = 0;
     daedalusShrines.length = 0;
     window.daedalusShrines = daedalusShrines;
+    for (const b of breachedTiles) {
+        if (b.y > 0 && b.y < maze.length - 1 && b.x > 0 && b.x < maze[0].length - 1) {
+            maze[b.y][b.x] = 0;
+        }
+    }
     breachedTiles.length = 0;
     window.breachedTiles = breachedTiles;
     playerBreaches = 0;
@@ -275,6 +280,10 @@ function initGame() {
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
+    viewMode = 'fp';
+    window.viewMode = 'fp';
+    const toggleViewBtn = document.getElementById('toggleViewButton');
+    if (toggleViewBtn) toggleViewBtn.textContent = 'View: 3D + Minimap (M)';
     drawMaze();
 
     setupMobileControls(); // Initialize mobile controls
@@ -338,6 +347,7 @@ function initGame() {
                     if (overlay) {
                         overlay.style.display = 'flex';
                     }
+                    drawMaze();
                     return;
                 }
 
@@ -439,6 +449,13 @@ function initGame() {
             return;
         }
 
+        // M/m view mode toggle
+        if (event.key === 'm' || event.key === 'M') {
+            event.preventDefault();
+            if (typeof toggleViewMode === 'function') toggleViewMode();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -490,6 +507,8 @@ function initGame() {
                         // Block movement and trigger feedback
                         document.body.style.backgroundColor = '#ffcccc';
                         setTimeout(() => { document.body.style.backgroundColor = ''; }, 100);
+                        // Redraw 3D view and minimap when turning toward locked gate
+                        drawMaze();
                         return;
                     }
                 }

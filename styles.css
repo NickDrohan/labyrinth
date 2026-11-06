@@ -421,17 +421,15 @@ body {
     box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
 }
 
-#touchArea {
-    position: absolute;
-    top: 0;
-    
-
-#gameCanvas {
-    margin: 0 auto;
-    background-color: #2d2d2d;
-    border: 2px solid #4a90e2;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+#toggleViewButton {
+    background: #1b2a4a;
+    color: #80d4ff;
+    border: 1px solid #80d4ff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
 }
 
 #touchArea {

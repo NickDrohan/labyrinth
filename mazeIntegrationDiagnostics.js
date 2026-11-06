@@ -81,6 +81,7 @@ window.runIntegrationSmokeSpec = function() {
   const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
   const savedAnvilFlashUntil = anvilFlashUntil;
   const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
+  const savedViewMode = typeof viewMode !== 'undefined' ? viewMode : 'fp';
 
   // DOM elements
   const winOverlay = document.getElementById('winOverlay');
@@ -176,6 +177,8 @@ window.runIntegrationSmokeSpec = function() {
   let I10 = false;
 
   let I11 = false;
+
+  let I12 = false;
 
   try {
     // Reset minotaur state
@@ -996,6 +999,83 @@ window.runIntegrationSmokeSpec = function() {
       I11 = hephaestusPlacementOk && anvilBtnScoreOk && anvilTrapOk && anvilLoopOk;
     }
 
+    // I12: First-person view mode diagnostics and toggle test
+    {
+      const sx = savedPlayerX;
+      const sy = savedPlayerY;
+      playerX = sx;
+      playerY = sy;
+      gameWon = false;
+      gameLost = false;
+      escapeX = -1;
+      escapeY = -1;
+      minotaurActive = false;
+      minotaurX = -1;
+      minotaurY = -1;
+      const fnOk = typeof window.getFirstPersonState === 'function' && typeof window.toggleViewMode === 'function';
+      let fpOk = false;
+      let distOk = false;
+      let toggleOk = false;
+      if (fnOk) {
+        toggleViewMode('fp');
+        const stFp = getFirstPersonState();
+        fpOk = stFp.raysCast === 100 &&
+          stFp.frontWallDist > 0 &&
+          Math.abs(mazeGraphics.scale.x - 0.275) < 0.01 &&
+          fpGraphics.visible === true;
+
+        const odir = validDir(sx, sy);
+        const allDirs = [
+          { dx: 0, dy: -1 },
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: -1, dy: 0 }
+        ].filter(d => sy + d.dy > 0 && sy + d.dy < maze.length - 1 && sx + d.dx > 0 && sx + d.dx < maze[0].length - 1);
+        if (odir && allDirs.length > 0) {
+          let wdir = allDirs.find(d => maze[sy + d.dy] && maze[sy + d.dy][sx + d.dx] === 0);
+          let forcedWall = null;
+          if (!wdir) {
+            wdir = allDirs.find(d => d.dx !== odir.dx || d.dy !== odir.dy) || allDirs[0];
+            const wx = sx + wdir.dx;
+            const wy = sy + wdir.dy;
+            forcedWall = { x: wx, y: wy, v: maze[wy][wx] };
+            maze[wy][wx] = 0;
+          }
+          try {
+            lastMoveDir = { dx: odir.dx, dy: odir.dy };
+            drawMaze();
+            const openDist = getFirstPersonState().frontWallDist;
+            lastMoveDir = { dx: wdir.dx, dy: wdir.dy };
+            drawMaze();
+            const wallDist = getFirstPersonState().frontWallDist;
+            distOk = openDist > wallDist;
+          } finally {
+            if (forcedWall) {
+              maze[forcedWall.y][forcedWall.x] = forcedWall.v;
+            }
+          }
+        }
+
+        const tvBtn = document.getElementById('toggleViewButton');
+        const px0 = playerX, py0 = playerY, ma0 = minotaurActive, mx0 = minotaurX, my0 = minotaurY;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+        const m1Ok = viewMode === 'map' && mazeGraphics.scale.x === 1 && Boolean(tvBtn && tvBtn.textContent === 'View: Overhead Map (M)');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+        const m2Ok = viewMode === 'fp' && Math.abs(mazeGraphics.scale.x - 0.275) < 0.01 && Boolean(tvBtn && tvBtn.textContent === 'View: 3D + Minimap (M)');
+        let c1Ok = false, c2Ok = false;
+        if (tvBtn) {
+          tvBtn.click();
+          c1Ok = viewMode === 'map' && mazeGraphics.scale.x === 1 && tvBtn.textContent === 'View: Overhead Map (M)';
+          tvBtn.click();
+          c2Ok = viewMode === 'fp' && Math.abs(mazeGraphics.scale.x - 0.275) < 0.01 && tvBtn.textContent === 'View: 3D + Minimap (M)';
+        }
+        const posUnchanged = playerX === px0 && playerY === py0 && minotaurActive === ma0 && minotaurX === mx0 && minotaurY === my0;
+        toggleOk = m1Ok && m2Ok && c1Ok && c2Ok && posUnchanged;
+      }
+      I12 = fnOk && fpOk && distOk && toggleOk;
+    }
+
+
   } catch (e) {
     consoleErrors.push(e && e.message ? e.message : String(e));
   }
@@ -1146,9 +1226,10 @@ window.runIntegrationSmokeSpec = function() {
     updateArrowUI();
     updateChariotUI();
     updateAnvilUI();
+    if (typeof toggleViewMode === 'function') toggleViewMode(savedViewMode || 'fp');
     drawMaze();
     console.error = origConsoleError;
   }
 
-  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, consoleErrors };
+  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, consoleErrors };
 };

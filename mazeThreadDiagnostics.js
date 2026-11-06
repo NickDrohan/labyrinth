@@ -92,7 +92,9 @@ window.getThreadState = () => ({
   apolloShrines: apolloShrines.map(ap => ({ x: ap.x, y: ap.y })),
   playerAnvils,
   activeAnvilTrap: activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null,
-  hephaestusShrines: hephaestusShrines.map(h => ({ x: h.x, y: h.y }))
+  hephaestusShrines: hephaestusShrines.map(h => ({ x: h.x, y: h.y })),
+  viewMode: typeof viewMode !== 'undefined' ? viewMode : 'fp',
+  frontWallDist: (typeof lastFpFrameSummary !== 'undefined' && lastFpFrameSummary) ? lastFpFrameSummary.frontWallDist : 0
 });
 window.runThreadSmokeSpec = function() {
     // Console error capture (T1)
