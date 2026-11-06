@@ -676,6 +676,10 @@ function initGame() {
                     updateTridentUI();
                     updateArrowUI();
                     updateChariotUI();
+                    // Clear active Anvil Trap on loss
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();
@@ -683,10 +687,6 @@ function initGame() {
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) overlay.style.display = 'flex';
                     drawMaze();
-                    // Clear active Anvil Trap on loss
-                    activeAnvilTrap = null;
-                    window.activeAnvilTrap = null;
-                    updateAnvilUI();
                     return;
                 }
                 drawMaze();

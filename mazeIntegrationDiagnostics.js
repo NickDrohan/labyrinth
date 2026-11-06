@@ -871,60 +871,62 @@ window.runIntegrationSmokeSpec = function() {
       // anvilTrapOk: triggerMoltenAnvil deployment + checkMinotaurAnvilTrap detonation/stun/wall-blast
       let anvilTrapOk = false;
       {
-        const dir = validDir(savedPlayerX, savedPlayerY);
-        playerX = savedPlayerX;
-        playerY = savedPlayerY;
-        gameWon = false;
-        gameLost = false;
-        minotaurActive = false;
-        minotaurX = -1;
-        minotaurY = -1;
-        playerAnvils = 1;
-        activeAnvilTrap = null;
-        window.activeAnvilTrap = null;
-
-        const neighborDirs = [
-          { dx: 0, dy: -1 },
-          { dx: 1, dy: 0 },
-          { dx: 0, dy: 1 },
-          { dx: -1, dy: 0 }
-        ];
-        const savedNeighborWalls = neighborDirs.map(n => ({
-          x: savedPlayerX + n.dx,
-          y: savedPlayerY + n.dy,
-          val: maze[savedPlayerY + n.dy] ? maze[savedPlayerY + n.dy][savedPlayerX + n.dx] : undefined
-        }));
+        const sx = savedPlayerX;
+        const sy = savedPlayerY;
+        const dir = validDir(sx, sy);
         const prevBreached = breachedTiles.map(b => ({ x: b.x, y: b.y }));
+        const nbrs = [
+          { x: sx, y: sy - 1 },
+          { x: sx + 1, y: sy },
+          { x: sx, y: sy + 1 },
+          { x: sx - 1, y: sy }
+        ].filter(n => n.y > 0 && n.y < maze.length - 1 && n.x > 0 && n.x < maze[0].length - 1);
+        const savedNbrs = nbrs.map(n => ({ x: n.x, y: n.y, v: maze[n.y][n.x] }));
 
         try {
-          if (!savedNeighborWalls.some(w => maze[w.y] && maze[w.y][w.x] === 0)) {
-            const firstInteriorNeighbor = savedNeighborWalls.find(w =>
-              w.y > 0 && w.y < maze.length - 1 &&
-              w.x > 0 && w.x < maze[0].length - 1
-            );
-            if (firstInteriorNeighbor) maze[firstInteriorNeighbor.y][firstInteriorNeighbor.x] = 0;
-          }
+          playerX = sx;
+          playerY = sy;
+          gameWon = false;
+          gameLost = false;
+          minotaurActive = false;
+          minotaurX = -1;
+          minotaurY = -1;
+          playerAnvils = 1;
+          activeAnvilTrap = null;
+          window.activeAnvilTrap = null;
+          const armed = triggerMoltenAnvil();
+          const ab = document.getElementById('anvilButton');
+          const ac = document.getElementById('anvilCounter');
+          const armedOk = armed === true && playerAnvils === 0 && isAnvilTrapActive() &&
+            activeAnvilTrap.x === sx && activeAnvilTrap.y === sy &&
+            activeAnvilTrap.steps === 22 &&
+            Boolean(ab && ab.disabled === true) &&
+            Boolean(ac && ac.textContent === 'Anvils: 0 (Forge: 22)');
 
-          const deployed = triggerMoltenAnvil();
-          anvilTrapOk = deployed === true && playerAnvils === 0 && isAnvilTrapActive() &&
-            activeAnvilTrap.x === savedPlayerX && activeAnvilTrap.y === savedPlayerY &&
-            activeAnvilTrap.steps === 22;
-
-          if (anvilTrapOk && dir) {
+          if (armedOk && dir) {
+            const mx = sx + dir.dx;
+            const my = sy + dir.dy;
+            const otherNbrs = nbrs.filter(n => n.x !== mx || n.y !== my);
+            if (!otherNbrs.some(n => maze[n.y][n.x] === 0) && otherNbrs.length > 0) {
+              maze[otherNbrs[0].y][otherNbrs[0].x] = 0;
+            }
+            const savedOrForced0Tiles = otherNbrs.filter(n => maze[n.y][n.x] === 0);
             minotaurActive = true;
-            minotaurX = savedPlayerX + dir.dx;
-            minotaurY = savedPlayerY + dir.dy;
+            minotaurX = mx;
+            minotaurY = my;
             minotaurStunnedUntil = 0;
-            minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
-
+            minotaurPath = computePathBetween(mx, my, sx, sy);
             const detonated = checkMinotaurAnvilTrap();
-            anvilTrapOk = detonated === true && activeAnvilTrap === null &&
-              window.activeAnvilTrap === null && minotaurStunnedUntil > Date.now() + 5500 &&
+            const blastedOk = otherNbrs.length > 0 &&
+              savedOrForced0Tiles.some(n => maze[n.y][n.x] === 1 && breachedTiles.some(b => b.x === n.x && b.y === n.y)) &&
               breachedTiles.length > prevBreached.length;
+            anvilTrapOk = armedOk && detonated === true && activeAnvilTrap === null &&
+              window.activeAnvilTrap === null && minotaurStunnedUntil > Date.now() + 5500 &&
+              blastedOk;
           }
         } finally {
-          for (const w of savedNeighborWalls) {
-            if (w.val !== undefined && maze[w.y]) maze[w.y][w.x] = w.val;
+          for (const n of savedNbrs) {
+            maze[n.y][n.x] = n.v;
           }
           breachedTiles.length = 0;
           breachedTiles.push(...prevBreached);
@@ -932,7 +934,66 @@ window.runIntegrationSmokeSpec = function() {
         }
       }
 
-      I11 = hephaestusPlacementOk && anvilBtnScoreOk && anvilTrapOk;
+      let anvilLoopOk = false;
+      {
+        const sx = savedPlayerX;
+        const sy = savedPlayerY;
+        const dir = validDir(sx, sy);
+        const ac = document.getElementById('anvilCounter');
+        if (dir) {
+          playerX = sx;
+          playerY = sy;
+          escapeX = -1;
+          escapeY = -1;
+          gameWon = false;
+          gameLost = false;
+          minotaurActive = false;
+          minotaurX = -1;
+          minotaurY = -1;
+          playerAnvils = 1;
+          activeAnvilTrap = null;
+          window.activeAnvilTrap = null;
+          hephaestusShrines.length = 0;
+          updateAnvilUI();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' }));
+          const hOk = isAnvilTrapActive() && activeAnvilTrap.steps === 22;
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+          const step21Ok = isAnvilTrapActive() && activeAnvilTrap.steps === 21;
+          handleMobileMove(dir.opp);
+          const step20Ok = isAnvilTrapActive() && activeAnvilTrap.steps === 20 && playerX === sx && playerY === sy;
+          if (activeAnvilTrap) activeAnvilTrap.steps = 1;
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: dir.key }));
+          const cooledOk = activeAnvilTrap === null && window.activeAnvilTrap === null && Boolean(ac && ac.textContent === 'Anvils: 0 (Ready)');
+
+          playerX = sx;
+          playerY = sy;
+          activeAnvilTrap = { x: sx, y: sy, steps: 10 };
+          window.activeAnvilTrap = activeAnvilTrap;
+          playerShields = 1;
+          minotaurActive = true;
+          minotaurX = sx + dir.dx;
+          minotaurY = sy + dir.dy;
+          minotaurStunnedUntil = 0;
+          updateAnvilUI();
+          updateShieldUI();
+          handleMobileMove(dir.mobile);
+          const shieldKeepOk = playerShields === 0 && (isAnvilTrapActive() || minotaurStunnedUntil > Date.now() + 5500);
+
+          activeAnvilTrap = null;
+          window.activeAnvilTrap = null;
+          minotaurActive = false;
+          minotaurX = -1;
+          minotaurY = -1;
+          playerX = sx;
+          playerY = sy;
+          hephaestusShrines.length = 0;
+          hephaestusShrines.push(...savedHephaestusShrines);
+          window.hephaestusShrines = hephaestusShrines;
+          anvilLoopOk = hOk && step21Ok && step20Ok && cooledOk && shieldKeepOk;
+        }
+      }
+
+      I11 = hephaestusPlacementOk && anvilBtnScoreOk && anvilTrapOk && anvilLoopOk;
     }
 
   } catch (e) {
@@ -997,6 +1058,14 @@ window.runIntegrationSmokeSpec = function() {
     restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines);
     restoreArray(orpheusShrines, savedOrpheusShrines);
+
+    // Re-assign window.* references
+    window.threadSpools = threadSpools;
+    window.aegisShrines = aegisShrines;
+    window.hermesShrines = hermesShrines;
+    window.chronosShrines = chronosShrines;
+    window.daedalusShrines = daedalusShrines;
+    window.icarusShrines = icarusShrines;
 
     // Restore sets
     restoreSet(visitedTiles, savedVisitedTiles);

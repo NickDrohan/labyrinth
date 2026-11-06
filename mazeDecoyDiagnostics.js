@@ -528,6 +528,8 @@ window.runOwlSmokeSpec = function() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
 
     // O1: Verify Athena Shrine placement
     {

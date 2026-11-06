@@ -146,6 +146,9 @@ function handleMobileMove(direction) {
 
         onPlayerFlareStep();
 
+        collectHermesAt(playerX, playerY);
+        updateDashUI();
+
         // Increment steps and update step counter
         steps++;
         const sc = document.getElementById('stepCounter');
@@ -264,8 +267,6 @@ function handleMobileMove(direction) {
                     updateTridentUI();
                     updateArrowUI();
                     updateChariotUI();
-                    activeAnvilTrap = null;
-                    window.activeAnvilTrap = null;
                     updateAnvilUI();
                     return;
                 }
@@ -320,8 +321,6 @@ function handleMobileMove(direction) {
                 updateTridentUI();
                 updateArrowUI();
                 updateChariotUI();
-                activeAnvilTrap = null;
-                window.activeAnvilTrap = null;
                 updateAnvilUI();
                 return;
             } else {
@@ -350,6 +349,8 @@ function handleMobileMove(direction) {
                     overlay.style.display = 'flex';
                     // Preserve existing textContent so #resetButton child element remains intact
                 }
+                drawMaze();
+                return;
             }
         }
 
@@ -390,14 +391,10 @@ function handleMobileMove(direction) {
             updateOwlUI();
             updateChariotUI();
             drawMaze();
+            return;
         }
+        drawMaze();
     }
 
-    // Check if the new position is a key
-    const keyIdx2 = keys.findIndex(k => k.x === newX && k.y === newY);
-    if (keyIdx2 !== -1) {
-        playerKeys++;
-        keys.splice(keyIdx2, 1);
-        document.getElementById('keyCounter').textContent = 'Keys: ' + playerKeys;
-    }
+
 }
