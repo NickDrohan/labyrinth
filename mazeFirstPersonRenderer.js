@@ -335,6 +335,6 @@ function getFirstPersonState() {
         minimapScale: mazeGraphics.scale.x,
         minimapX: mazeGraphics.x,
         minimapY: mazeGraphics.y,
-        minimapMasked: Boolean(mazeGraphics.mask)
+        minimapMasked: Boolean(mazeGraphics.mask && fpGraphics._minimapMask && mazeGraphics.mask === fpGraphics._minimapMask && fpGraphics._minimapMask.visible)
     };
 }

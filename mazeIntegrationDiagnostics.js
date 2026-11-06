@@ -1,1 +1,1 @@
-
+window.collectI13Diagnostics = function() { return { lastI13Detail: window.lastI13Detail || null, minotaurIntervalRunning: typeof minotaurInterval !== 'undefined' && minotaurInterval !== null, fpState: typeof getFirstPersonState === 'function' ? getFirstPersonState() : null }; };

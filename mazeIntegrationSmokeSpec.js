@@ -1173,6 +1173,7 @@ window.runIntegrationSmokeSpec = function() {
       }
     }
     Object.assign(i13Detail, { maskOk, noOpOk, modalOk, resetOk });
+    window.lastI13Detail = i13Detail;
     I13 = Boolean(maskOk && noOpOk && modalOk && resetOk);
     if (!I13) consoleErrors.push('I13 detail: ' + JSON.stringify(i13Detail));
 
