@@ -101,50 +101,6 @@ function initGame() {
         }
     }
 
-    // Lazily create and append overlay stylesheet if missing
-    if (!document.getElementById('labyrinthOverlayStyles') && document.head) {
-        const styleEl = document.createElement('style');
-        styleEl.id = 'labyrinthOverlayStyles';
-        styleEl.textContent = `
-            .win-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 25, 15, 0.88);
-                color: #00ff88;
-                font-family: Arial, sans-serif;
-                font-size: 1.8rem;
-                font-weight: bold;
-                text-align: center;
-                padding: 20px;
-                box-sizing: border-box;
-                justify-content: center;
-                align-items: center;
-                z-index: 1000;
-                cursor: pointer;
-                display: none;
-            }
-            .lose-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.85);
-                color: #FFD700;
-                font-family: Arial, sans-serif;
-                font-size: 2rem;
-                justify-content: center;
-                align-items: center;
-                z-index: 1000;
-                display: none;
-            }
-        `;
-        document.head.appendChild(styleEl);
-    }
-
     gameWon = false;
     gameLost = false;
     document.getElementById('winOverlay').style.display = 'none';

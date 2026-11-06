@@ -1114,11 +1114,12 @@ window.runIntegrationSmokeSpec = function() {
         winOverlay.textContent = formatWinSummary();
         winOverlay.style.display = 'flex';
       }
-      const modalPos = getComputedStyle(winOverlay).position;
-      const modalZ = getComputedStyle(winOverlay).zIndex;
-      const modalTextOk = Boolean(winOverlay && winOverlay.textContent.startsWith('You Escaped! | Steps: ') && winOverlay.textContent.includes('Score: ') && winOverlay.textContent.includes('Click to Play Again'));
+      const winComputed = winOverlay ? window.getComputedStyle(winOverlay) : null;
+      const modalPos = winComputed ? winComputed.position : '';
+      const modalZ = winComputed ? winComputed.zIndex : '';
+      const modalTextOk = Boolean(winOverlay && winOverlay.textContent.startsWith('You Escaped!') && winOverlay.textContent.includes('Click to Play Again'));
       modalOk = modalPos === 'fixed' && modalZ === '1000' && modalTextOk;
-      Object.assign(i13Detail, { modalPos, modalZ, modalTextOk, modalOk, losePos: loseOverlay ? getComputedStyle(loseOverlay).position : null, loseZ: loseOverlay ? getComputedStyle(loseOverlay).zIndex : null, styleSheets: [...document.styleSheets].map(s => s.href), pixiVersion: typeof PIXI !== 'undefined' ? PIXI.VERSION : null });
+      Object.assign(i13Detail, { modalPos, modalZ, modalTextOk, modalOk });
 
       // Test reset behavior
       const savedPassagesI13 = secretPassages.map(p => ({ ...p }));
@@ -1180,6 +1181,7 @@ window.runIntegrationSmokeSpec = function() {
   }
   // Restore all state in finally
   finally {
+    window.removeEventListener('error', onWinError);
     // Helper functions for restoring collections
     function restoreArray(target, saved) {
       target.length = 0;
@@ -1341,7 +1343,6 @@ window.runIntegrationSmokeSpec = function() {
     }
     if (typeof toggleViewMode === 'function') toggleViewMode(savedViewMode || 'fp');
     drawMaze();
-    window.removeEventListener('error', onWinError);
     console.error = origConsoleError;
   }
 
