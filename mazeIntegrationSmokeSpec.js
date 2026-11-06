@@ -1124,8 +1124,22 @@ window.runIntegrationSmokeSpec = function() {
       const loseComputed = loseOverlay ? window.getComputedStyle(loseOverlay) : null;
       const sheetHrefs = [...document.styleSheets].map(s => s.href || 'inline');
       let winRuleFound = false;
-      for (const s of document.styleSheets) { try { for (const r of s.cssRules) { if (r.selectorText === '.win-overlay') winRuleFound = true; } } catch (err) { /* cross-origin sheet: unreadable */ } }
-      Object.assign(i13Detail, { losePos: loseComputed ? loseComputed.position : '', loseZ: loseComputed ? loseComputed.zIndex : '', winClass: winOverlay ? winOverlay.className : '', sheetHrefs, winRuleFound });
+      for (const s of document.styleSheets) {
+        try {
+          for (const r of s.cssRules) {
+            if (r.selectorText === '.win-overlay') winRuleFound = true;
+          }
+        } catch (err) {
+          /* cross-origin sheet: unreadable */
+        }
+      }
+      Object.assign(i13Detail, {
+        losePos: loseComputed ? loseComputed.position : '',
+        loseZ: loseComputed ? loseComputed.zIndex : '',
+        winClass: winOverlay ? winOverlay.className : '',
+        sheetHrefs,
+        winRuleFound
+      });
 
       // Test reset behavior
       const savedPassagesI13 = secretPassages.map(p => ({ ...p }));
