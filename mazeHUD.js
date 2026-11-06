@@ -106,16 +106,10 @@ function updateBreachUI() {
   }
 }
 
-function formatWinSummary() {
-  const bonusCharges = playerSpools + playerShields + playerDashes + playerKeys + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0) + (playerArrows || 0) + (playerChariots || 0);
-  const score = Math.max(100, 5000 - steps * 2 + visitedTiles.size * 5 + bonusCharges * 150);
-  return `You Escaped! Steps: ${steps} | Tiles: ${visitedTiles.size} | Score: ${score}`;
-}
-
 function updateTridentUI() {
   const c = document.getElementById('tridentCounter');
   if (c) {
-    c.textContent = `Tridents: ${playerTridents} (${getDirectionArrow()})`;
+    c.textContent = 'Tridents: ' + playerTridents + ' (' + getDirectionArrow() + ')';
     c.classList.toggle('ready', Boolean(playerTridents > 0 && typeof canSurgeInFacingDir === 'function' && canSurgeInFacingDir()));
   }
   const b = document.getElementById('tridentButton');
@@ -127,11 +121,7 @@ function updateTridentUI() {
 function updateArrowUI() {
   const c = document.getElementById('arrowCounter');
   if (c) {
-    if (arrowVisionStepsRemaining > 0) {
-      c.textContent = `Arrows: ${playerArrows} (Sight: ${arrowVisionStepsRemaining})`;
-    } else {
-      c.textContent = `Arrows: ${playerArrows} (${getDirectionArrow()})`;
-    }
+    c.textContent = 'Arrows: ' + playerArrows + (arrowVisionStepsRemaining > 0 ? ' (Sight: ' + arrowVisionStepsRemaining + ')' : ' (' + getDirectionArrow() + ')');
     c.classList.toggle('ready', Boolean((playerArrows > 0 && typeof canFireArrowInFacingDir === 'function' && canFireArrowInFacingDir()) || arrowVisionStepsRemaining > 0));
   }
   const b = document.getElementById('arrowButton');
@@ -151,6 +141,27 @@ function updateChariotUI() {
     b.disabled = Boolean(playerChariots <= 0 || gameWon || gameLost);
   }
 }
+function updateAnvilUI() {
+  const c = document.getElementById('anvilCounter');
+  const active = Boolean(activeAnvilTrap && activeAnvilTrap.steps > 0);
+  if (c) {
+    c.textContent = 'Anvils: ' + playerAnvils + (active ? ' (Forge: ' + activeAnvilTrap.steps + ')' : ' (Ready)');
+    c.classList.toggle('active', active);
+  }
+  const b = document.getElementById('anvilButton');
+  if (b) {
+    b.disabled = Boolean(playerAnvils <= 0 || active || gameWon || gameLost);
+  }
+}
+
+function formatWinSummary() {
+  const uniqueCount = visitedTiles ? visitedTiles.size : 0;
+  const bonusCharges = (playerSpools || 0) + (playerShields || 0) + (playerDashes || 0) + (playerRecalls || 0) + (playerBreaches || 0) + (playerFlares || 0) + (playerDecoys || 0) + (playerOwls || 0) + (playerTridents || 0) + (playerArrows || 0) + (playerChariots || 0) + (playerAnvils || 0);
+  const rawScore = 5000 - steps * 5 + uniqueCount * 10 + bonusCharges * 150;
+  const score = Math.max(100, rawScore);
+  return 'You Escaped! | Steps: ' + steps + ' | Tiles Explored: ' + uniqueCount + ' | Score: ' + score;
+}
+
 function updateRecallUI() {
   const counter = document.getElementById('recallCounter');
   const button = document.getElementById('recallButton');

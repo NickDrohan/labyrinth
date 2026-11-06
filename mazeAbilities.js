@@ -242,6 +242,7 @@ function triggerRiptideSurge() {
     collectTridentAt(playerX, playerY);
     onPlayerArrowStep();
     collectChariotAt(playerX, playerY);
+    collectAnvilAt(playerX, playerY);
     if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
       sweptMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + RIPTIDE_STUN_MS);
@@ -300,6 +301,7 @@ function triggerRiptideSurge() {
     collectTridentAt(playerX, playerY);
     collectArrowAt(playerX, playerY);
     collectChariotAt(playerX, playerY);
+    collectAnvilAt(playerX, playerY);
     showSecretPassageMessage();
   }
   if (playerX === escapeX && playerY === escapeY) {
@@ -317,6 +319,8 @@ function triggerRiptideSurge() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     document.getElementById('winOverlay').textContent = formatWinSummary();
     document.getElementById('winOverlay').style.display = 'flex';
     updateTorchIndicator();
@@ -331,6 +335,7 @@ function triggerRiptideSurge() {
     updateTridentUI();
     updateArrowUI();
     updateChariotUI();
+    updateAnvilUI();
     drawMaze();
     return true;
   }
@@ -347,6 +352,7 @@ function triggerRiptideSurge() {
   updateSpoolUI();
   updateArrowUI();
   updateChariotUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }
@@ -463,6 +469,7 @@ function triggerSilverArrow() {
     if (collectTridentAt(nx, ny)) pickupsSkewered++;
     if (collectArrowAt(nx, ny)) pickupsSkewered++;
     if (collectChariotAt(nx, ny)) pickupsSkewered++;
+    if (collectAnvilAt(nx, ny)) pickupsSkewered++;
     if (!pinnedMinotaur && minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - nx) + Math.abs(minotaurY - ny) <= 1) {
       pinnedMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + ARROW_STUN_MS);
@@ -486,6 +493,7 @@ function triggerSilverArrow() {
   updateDashUI();
   updateShieldUI();
   updateSpoolUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }
@@ -552,6 +560,7 @@ function triggerSolarChariot() {
     collectTridentAt(playerX, playerY);
     onPlayerArrowStep();
     collectChariotAt(playerX, playerY);
+    collectAnvilAt(playerX, playerY);
     if (minotaurActive && minotaurX >= 0 && Math.abs(minotaurX - playerX) + Math.abs(minotaurY - playerY) <= 2) {
       scorchedMinotaur = true;
       minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
@@ -609,6 +618,7 @@ function triggerSolarChariot() {
     collectTridentAt(playerX, playerY);
     collectArrowAt(playerX, playerY);
     collectChariotAt(playerX, playerY);
+    collectAnvilAt(playerX, playerY);
     showSecretPassageMessage();
   }
   if (playerX === escapeX && playerY === escapeY) {
@@ -643,6 +653,9 @@ function triggerSolarChariot() {
     updateTridentUI();
     updateArrowUI();
     updateChariotUI();
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
+    updateAnvilUI();
     drawMaze();
     return true;
   }
@@ -661,6 +674,87 @@ function triggerSolarChariot() {
   updateDecoyUI();
   updateOwlUI();
   updateSpoolUI();
+  updateAnvilUI();
+  drawMaze();
+  return true;
+}
+
+function isAnvilTrapActive() {
+  return Boolean(activeAnvilTrap && activeAnvilTrap.steps > 0);
+}
+
+function collectAnvilAt(x, y) {
+  if (playerAnvils >= MAX_ANVILS || !Array.isArray(hephaestusShrines)) return false;
+  const shrineIdx = hephaestusShrines.findIndex(h => h.x === x && h.y === y);
+  if (shrineIdx === -1) return false;
+  hephaestusShrines.splice(shrineIdx, 1);
+  playerAnvils++;
+  showBannerMessage('Hephaestus Molten Anvil acquired! (' + playerAnvils + '/' + MAX_ANVILS + ')', 'rgba(200,75,15,0.92)');
+  updateAnvilUI();
+  return true;
+}
+
+function detonateAnvilTrap(reasonMsg) {
+  if (!isAnvilTrapActive()) return false;
+  const { x: tx, y: ty } = activeAnvilTrap;
+  activeAnvilTrap = null;
+  window.activeAnvilTrap = null;
+  anvilFlashUntil = Date.now() + 850;
+  minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + ANVIL_STUN_MS);
+  let blasted = 0;
+  const neighbors = [
+    { x: tx, y: ty - 1 },
+    { x: tx + 1, y: ty },
+    { x: tx, y: ty + 1 },
+    { x: tx - 1, y: ty }
+  ];
+  for (const { x: nx, y: ny } of neighbors) {
+    if (blasted >= 2) break;
+    if (ny <= 0 || ny >= maze.length - 1 || nx <= 0 || nx >= maze[0].length - 1 || !maze[ny] || maze[ny][nx] !== 0) continue;
+    maze[ny][nx] = 1;
+    if (!breachedTiles.some(tile => tile.x === nx && tile.y === ny)) breachedTiles.push({ x: nx, y: ny });
+    blasted++;
+  }
+  if (minotaurActive && minotaurX >= 0) pushMinotaurBack(ANVIL_PUSH_STEPS);
+  showBannerMessage(reasonMsg || ('Molten Anvil erupted! Minotaur stunned (6.5s), hurled back & ' + blasted + ' wall(s) blasted!'), 'rgba(210,80,20,0.92)');
+  updateAnvilUI();
+  updateShieldUI();
+  updateBreachUI();
+  return true;
+}
+
+function checkMinotaurAnvilTrap() {
+  if (!isAnvilTrapActive() || !minotaurActive || minotaurX < 0 || minotaurY < 0) return false;
+  if (Math.abs(minotaurX - activeAnvilTrap.x) + Math.abs(minotaurY - activeAnvilTrap.y) <= 1) {
+    return detonateAnvilTrap('Molten Anvil erupted! Minotaur stunned for 6.5s & hurled back!');
+  }
+  return false;
+}
+
+function onPlayerAnvilStep() {
+  collectAnvilAt(playerX, playerY);
+  if (isAnvilTrapActive()) {
+    activeAnvilTrap.steps--;
+    if (activeAnvilTrap.steps <= 0) {
+      activeAnvilTrap = null;
+      window.activeAnvilTrap = null;
+      showBannerMessage('Molten Anvil cooled.', 'rgba(200,75,15,0.92)');
+    }
+  }
+  updateAnvilUI();
+}
+
+function triggerMoltenAnvil() {
+  if (gameWon || gameLost || playerAnvils <= 0 || isAnvilTrapActive()) return false;
+  playerAnvils--;
+  activeAnvilTrap = { x: playerX, y: playerY, steps: ANVIL_TRAP_STEPS };
+  window.activeAnvilTrap = activeAnvilTrap;
+  anvilFlashUntil = Date.now() + 700;
+  if (!checkMinotaurAnvilTrap()) {
+    showBannerMessage('Molten Anvil forged! 22-step magma trap armed!', 'rgba(210,80,20,0.92)');
+  }
+  updateAnvilUI();
+  updateShieldUI();
   drawMaze();
   return true;
 }

@@ -89,7 +89,10 @@ window.getThreadState = () => ({
   artemisShrines: artemisShrines.map(a => ({ x: a.x, y: a.y })),
   playerChariots,
   chariotTrailStepsRemaining,
-  apolloShrines: apolloShrines.map(ap => ({ x: ap.x, y: ap.y }))
+  apolloShrines: apolloShrines.map(ap => ({ x: ap.x, y: ap.y })),
+  playerAnvils,
+  activeAnvilTrap: activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null,
+  hephaestusShrines: hephaestusShrines.map(h => ({ x: h.x, y: h.y }))
 });
 window.runThreadSmokeSpec = function() {
     // Console error capture (T1)
@@ -159,6 +162,11 @@ window.runThreadSmokeSpec = function() {
     const savedChariotFlashUntil = chariotFlashUntil;
     const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
     const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+    // Hephaestus Forge state
+    const savedPlayerAnvils = playerAnvils;
+    const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+    const savedAnvilFlashUntil = anvilFlashUntil;
+    const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
     // Overlay display/textContent
     const winOverlay = document.getElementById('winOverlay');
     const loseOverlay = document.getElementById('loseOverlay');
@@ -191,6 +199,8 @@ window.runThreadSmokeSpec = function() {
         arrowTrail = [];
         chariotTrailStepsRemaining = 0;
         chariotTrail = [];
+        activeAnvilTrap = null;
+        window.activeAnvilTrap = null;
         const st0 = window.getThreadState();
         p1 = Array.isArray(st0.threadSpools) && st0.threadSpools.length >= 12 &&
             st0.threadSpools.every(s => s.y >= 0 && s.y < maze.length && s.x >= 0 && s.x < maze[0].length && maze[s.y][s.x] === 1);
@@ -493,6 +503,14 @@ window.runThreadSmokeSpec = function() {
         window.chronosShrines = chronosShrines;
         window.daedalusShrines = daedalusShrines;
         window.icarusShrines = icarusShrines;
+        // Restore Hephaestus Forge state
+        hephaestusShrines.length = 0;
+        hephaestusShrines.push(...savedHephaestusShrines);
+        window.hephaestusShrines = hephaestusShrines;
+        playerAnvils = savedPlayerAnvils;
+        activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+        window.activeAnvilTrap = activeAnvilTrap;
+        anvilFlashUntil = savedAnvilFlashUntil;
         // Restore UI
         updateTorchIndicator();
         updateSpoolUI();
@@ -506,6 +524,7 @@ window.runThreadSmokeSpec = function() {
         if (typeof updateTridentUI === 'function') updateTridentUI();
         if (typeof updateArrowUI === 'function') updateArrowUI();
         if (typeof updateChariotUI === 'function') updateChariotUI();
+        if (typeof updateAnvilUI === 'function') updateAnvilUI();
         drawMaze();
         // Restore console.error
         console.error = origConsoleError;

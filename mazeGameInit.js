@@ -109,6 +109,14 @@ function initGame() {
     chariotTrailStepsRemaining = 0;
     chariotFlashUntil = 0;
 
+    // Reset Hephaestus Forge & Molten Anvil state
+    hephaestusShrines.length = 0;
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = 0;
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
+    anvilFlashUntil = 0;
+
     // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
     playerX = 25;
     playerY = 25;
@@ -262,6 +270,8 @@ function initGame() {
     updateArrowUI();
     placeApolloShrines();
     updateChariotUI();
+    placeHephaestusShrines();
+    updateAnvilUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
@@ -310,6 +320,8 @@ function initGame() {
                     arrowTrail = [];
                     chariotTrailStepsRemaining = 0;
                     chariotTrail = [];
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
@@ -321,6 +333,7 @@ function initGame() {
                     updateTridentUI();
                     updateArrowUI();
                     updateChariotUI();
+                    updateAnvilUI();
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) {
                         overlay.style.display = 'flex';
@@ -335,6 +348,7 @@ function initGame() {
                     showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
                     updateChariotUI();
                 }
+                checkMinotaurAnvilTrap();
                 updateShieldUI();
                 drawMaze();
             }
@@ -415,6 +429,13 @@ function initGame() {
         if (event.key === 'z' || event.key === 'Z') {
             event.preventDefault();
             triggerSolarChariot();
+            return;
+        }
+
+        // Hephaestus Molten Anvil hotkey
+        if (event.key === 'h' || event.key === 'H') {
+            event.preventDefault();
+            triggerMoltenAnvil();
             return;
         }
 
@@ -504,6 +525,7 @@ function initGame() {
                 updateTridentUI();
                 onPlayerArrowStep();
         onPlayerChariotStep();
+        onPlayerAnvilStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -573,6 +595,10 @@ function initGame() {
                     collectArrowAt(playerX, playerY);
                     updateArrowUI();
 
+                    // Collect Hephaestus shrine at teleport destination
+                    collectAnvilAt(playerX, playerY);
+                    updateAnvilUI();
+
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
                     if (!visitedTiles.has(newTileKey)) {
@@ -613,6 +639,10 @@ function initGame() {
                     chariotTrailStepsRemaining = 0;
                     chariotTrail = [];
                     updateChariotUI();
+                    // Clear active Anvil Trap on win
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -653,6 +683,10 @@ function initGame() {
                     const overlay = document.getElementById('loseOverlay');
                     if (overlay) overlay.style.display = 'flex';
                     drawMaze();
+                    // Clear active Anvil Trap on loss
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     return;
                 }
                 drawMaze();

@@ -56,6 +56,7 @@ function triggerPhaseDash() {
     collectTridentAt(tx1, ty1);
     collectArrowAt(tx1, ty1);
     collectChariotAt(tx1, ty1);
+    collectAnvilAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -99,6 +100,7 @@ function triggerPhaseDash() {
   collectTridentAt(playerX, playerY);
   onPlayerArrowStep();
   onPlayerChariotStep();
+  onPlayerAnvilStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -138,6 +140,7 @@ function triggerPhaseDash() {
     if (collectTridentAt(playerX, playerY)) updateTridentUI();
     if (collectArrowAt(playerX, playerY)) updateArrowUI();
     if (collectChariotAt(playerX, playerY)) updateChariotUI();
+    collectAnvilAt(playerX, playerY);
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
@@ -154,6 +157,7 @@ function triggerPhaseDash() {
       updateTridentUI();
       updateArrowUI();
       updateChariotUI();
+      updateAnvilUI();
       return true;
     }
     gameLost = true;
@@ -161,6 +165,8 @@ function triggerPhaseDash() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     const lo = document.getElementById('loseOverlay');
     if (lo) lo.style.display = 'flex';
     updateSpoolUI();
@@ -174,6 +180,7 @@ function triggerPhaseDash() {
     updateTridentUI();
     updateArrowUI();
     updateChariotUI();
+    updateAnvilUI();
     drawMaze();
     return true;
   }
@@ -206,8 +213,11 @@ function triggerPhaseDash() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     updateArrowUI();
     updateChariotUI();
+    updateAnvilUI();
     drawMaze();
 
     return true;
@@ -223,6 +233,7 @@ function triggerPhaseDash() {
   updateTridentUI();
   updateArrowUI();
   updateChariotUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }
@@ -279,9 +290,11 @@ function triggerChronosRecall() {
   if (owlStepsRemaining > 0) refreshOwlEscapePreview();
   collectArrowAt(playerX, playerY);
   collectChariotAt(playerX, playerY);
+  collectAnvilAt(playerX, playerY);
   updateRecallUI();
   updateArrowUI();
   updateChariotUI();
+  updateAnvilUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
@@ -337,6 +350,7 @@ function triggerWallBreach() {
   onPlayerOwlStep();
   onPlayerArrowStep();
   onPlayerChariotStep();
+  onPlayerAnvilStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -367,6 +381,7 @@ function triggerWallBreach() {
   updateTridentUI();
   updateArrowUI();
   updateChariotUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }

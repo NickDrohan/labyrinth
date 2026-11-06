@@ -176,6 +176,7 @@ function handleMobileMove(direction) {
         updateTridentUI();
         onPlayerArrowStep();
         onPlayerChariotStep();
+        onPlayerAnvilStep();
 
         // Check for secret passage teleportation after moving onto a new tile
         const passageIdx = secretPassages.findIndex(p => p.fromX === playerX && p.fromY === playerY);
@@ -223,8 +224,12 @@ function handleMobileMove(direction) {
             updateTridentUI();
             collectArrowAt(playerX, playerY);
             updateArrowUI();
-            collectChariotAt(playerX, playerY);
-            updateChariotUI();
+
+            // Collect any Hephaestus shrine at the teleport destination before continuing
+            if (collectSpoolAt(playerX, playerY)) updateSpoolUI();
+            if (collectChariotAt(playerX, playerY)) updateChariotUI();
+            collectAnvilAt(playerX, playerY);
+            updateAnvilUI();
 
             // Update visited tiles tracking
             const tileKey = `${playerX},${playerY}`;
@@ -259,6 +264,9 @@ function handleMobileMove(direction) {
                     updateTridentUI();
                     updateArrowUI();
                     updateChariotUI();
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     return;
                 }
                 gameLost = true;
@@ -278,6 +286,9 @@ function handleMobileMove(direction) {
                 updateDecoyUI();
                 updateOwlUI();
                 updateChariotUI();
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+                updateAnvilUI();
                 const overlay = document.getElementById('loseOverlay');
                 if (overlay) {
                     overlay.style.display = 'flex';
@@ -309,6 +320,9 @@ function handleMobileMove(direction) {
                 updateTridentUI();
                 updateArrowUI();
                 updateChariotUI();
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+                updateAnvilUI();
                 return;
             } else {
                 gameLost = true;
@@ -320,25 +334,26 @@ function handleMobileMove(direction) {
                 updateShieldUI();
                 updateDashUI();
                 updateRecallUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
                 updateBreachUI();
                 updateFlareUI();
                 updateDecoyUI();
                 updateOwlUI();
-                updateTridentUI();
-                updateArrowUI();
                 updateChariotUI();
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+                updateAnvilUI();
                 const overlay = document.getElementById('loseOverlay');
-                if (overlay) overlay.style.display = 'flex';
-                drawMaze();
-                return;
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    // Preserve existing textContent so #resetButton child element remains intact
+                }
             }
         }
 
-        // Collect Hermes shrine on regular tile move
-        collectHermesAt(playerX, playerY);
-        updateDashUI();
-        updateBreachUI();
-
+        // Check if player reached the escape point
         if (playerX === escapeX && playerY === escapeY) {
             gameWon = true;
             compassStepsRemaining = 0;
@@ -347,31 +362,34 @@ function handleMobileMove(direction) {
             torchStepsRemaining = 0;
             activeDecoy = null;
             window.activeDecoy = null;
+            owlStepsRemaining = 0;
+            owlEscapePreview = [];
+            arrowVisionStepsRemaining = 0;
+            arrowTrail = [];
+            chariotTrailStepsRemaining = 0;
+            chariotTrail = [];
+            activeAnvilTrap = null;
+            window.activeAnvilTrap = null;
             const winOverlay = document.getElementById('winOverlay');
             if (winOverlay) {
                 winOverlay.textContent = formatWinSummary();
                 winOverlay.style.display = 'flex';
             }
             updateTorchIndicator();
+            updateAnvilUI();
             updateSpoolUI();
             updateShieldUI();
             updateDashUI();
             updateRecallUI();
+            updateOwlUI();
+            updateTridentUI();
+            updateArrowUI();
             updateBreachUI();
             updateFlareUI();
             updateDecoyUI();
-            owlStepsRemaining = 0;
-            owlEscapePreview = [];
             updateOwlUI();
-            updateTridentUI();
-            arrowVisionStepsRemaining = 0;
-            arrowTrail = [];
-            chariotTrailStepsRemaining = 0;
-            chariotTrail = [];
-            updateArrowUI();
             updateChariotUI();
             drawMaze();
-            return;
         }
     }
 

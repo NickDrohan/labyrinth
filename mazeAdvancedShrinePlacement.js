@@ -607,3 +607,103 @@ function placeApolloShrines() {
   // 13. Assign to window
   window.apolloShrines = apolloShrines;
 }
+
+function placeHephaestusShrines() {
+  // 1. Clear hephaestusShrines and assign to window
+  hephaestusShrines.length = 0;
+  window.hephaestusShrines = hephaestusShrines;
+
+  // 2. Build anchors array
+  const anchors = [
+    { x: playerX, y: playerY },
+    { x: escapeX, y: escapeY }
+  ];
+
+  function pushKeys(arr) {
+    if (Array.isArray(arr)) arr.forEach(p => { anchors.push({ x: p.x, y: p.y }); });
+  }
+
+  pushKeys(keys);
+  pushKeys(gates);
+  pushKeys(torchPickups);
+  if (secretPassages) {
+    secretPassages.forEach(p => { anchors.push({ x: p.fromX, y: p.fromY }); anchors.push({ x: p.toX, y: p.toY }); });
+  }
+  pushKeys(threadSpools);
+  pushKeys(aegisShrines);
+  pushKeys(hermesShrines);
+  pushKeys(chronosShrines);
+  pushKeys(daedalusShrines);
+  pushKeys(icarusShrines);
+  pushKeys(orpheusShrines);
+  pushKeys(athenaShrines);
+  pushKeys(poseidonShrines);
+  pushKeys(artemisShrines);
+  pushKeys(apolloShrines);
+
+  // 3. Define H and W
+  const H = maze.length;
+  const W = maze[0].length;
+
+  // 4. Define far(x, y, list)
+  function far(x, y, list) {
+    return list.every(a => Math.abs(x - a.x) + Math.abs(y - a.y) >= 5);
+  }
+
+  // 5. Define canPlaceAt(x, y)
+  function canPlaceAt(x, y) {
+    return x >= 0 && x < W && y >= 0 && y < H && maze[y][x] === 1 && far(x, y, anchors) && far(x, y, hephaestusShrines);
+  }
+
+  // 6. Define tryPlaceHephaestus(targetCount, minR, maxR, maxAttempts)
+  function tryPlaceHephaestus(targetCount, minR, maxR, maxAttempts) {
+    for (let attempts = 0; attempts < maxAttempts && hephaestusShrines.length < targetCount; attempts++) {
+      const dx = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const dy = Math.floor(Math.random() * (2 * maxR + 1)) - maxR;
+      const md = Math.abs(dx) + Math.abs(dy);
+      if (md < minR || md > maxR) continue;
+      if (canPlaceAt(playerX + dx, playerY + dy)) {
+        hephaestusShrines.push({ x: playerX + dx, y: playerY + dy });
+      }
+    }
+  }
+
+  // 7. Call tryPlaceHephaestus(5, 6, 35, 6000)
+  tryPlaceHephaestus(5, 6, 35, 6000);
+
+  // 8. Count near shrines and deterministic ring scan
+  let nearCount = hephaestusShrines.filter(s => Math.abs(s.x - playerX) + Math.abs(s.y - playerY) <= 35).length;
+  if (nearCount < 3) {
+    for (let d = 6; d <= 35 && nearCount < 3; d++) {
+      for (let dx = -d; dx <= d && nearCount < 3; dx++) {
+        const dy = d - Math.abs(dx);
+        const ys = dy === 0 ? [playerY] : [playerY + dy, playerY - dy];
+        for (const cy of ys) {
+          if (canPlaceAt(playerX + dx, cy)) {
+            hephaestusShrines.push({ x: playerX + dx, y: cy });
+            nearCount++;
+          }
+          if (nearCount >= 3) break;
+        }
+      }
+    }
+  }
+
+  // 9. tryPlaceHephaestus(HEPHAESTUS_SHRINE_COUNT, 8, 160, 25000)
+  tryPlaceHephaestus(HEPHAESTUS_SHRINE_COUNT, 8, 160, 25000);
+
+  // 10. tryPlaceHephaestus(HEPHAESTUS_SHRINE_COUNT, 5, W + H, 50000)
+  tryPlaceHephaestus(HEPHAESTUS_SHRINE_COUNT, 5, W + H, 50000);
+
+  // 11. Row-major fallback ensuring hephaestusShrines.length >= 12
+  if (hephaestusShrines.length < 12) {
+    for (let y = 0; y < H && hephaestusShrines.length < 12; y++) {
+      for (let x = 0; x < W && hephaestusShrines.length < 12; x++) {
+        if (canPlaceAt(x, y)) hephaestusShrines.push({ x, y });
+      }
+    }
+  }
+
+  // 12. Assign to window
+  window.hephaestusShrines = hephaestusShrines;
+}

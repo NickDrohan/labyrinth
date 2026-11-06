@@ -384,6 +384,48 @@ body {
     cursor: not-allowed;
 }
 
+#anvilCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ff7733;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#anvilCounter.active {
+    color: #ffbb66;
+    font-weight: bold;
+}
+
+#anvilButton {
+    background: #3d180a;
+    color: #ff7733;
+    border: 1px solid #ff7733;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#anvilButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#gameCanvas {
+    margin: 0 auto;
+    background-color: #2d2d2d;
+    border: 2px solid #4a90e2;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+}
+
+#touchArea {
+    position: absolute;
+    top: 0;
+    
+
 #gameCanvas {
     margin: 0 auto;
     background-color: #2d2d2d;

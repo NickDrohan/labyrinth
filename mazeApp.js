@@ -115,6 +115,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gameCanvas').focus();
         });
     }
+
+    const anvilBtn = document.getElementById('anvilButton');
+    if (anvilBtn) {
+        anvilBtn.addEventListener('click', function() {
+            triggerMoltenAnvil();
+            document.getElementById('gameCanvas').focus();
+        });
+    }
 });
 // Helper to show and fade banner messages
 let secretPassageMsgTimeout = null;
@@ -250,6 +258,19 @@ let chariotTrail = [];
 let chariotTrailStepsRemaining = 0;
 let chariotFlashUntil = 0;
 
+let hephaestusShrines = [];
+window.hephaestusShrines = hephaestusShrines;
+let playerAnvils = 0;
+const MAX_ANVILS = 3;
+const HEPHAESTUS_SHRINE_COUNT = 16;
+const ANVIL_TRAP_STEPS = 22;
+const ANVIL_VISION_RADIUS = 3;
+const ANVIL_STUN_MS = 6500;
+const ANVIL_PUSH_STEPS = 9;
+let activeAnvilTrap = null;
+window.activeAnvilTrap = activeAnvilTrap;
+let anvilFlashUntil = 0;
+
 let chronosShrines = [];
 window.chronosShrines = chronosShrines;
 let playerRecalls = 0;
@@ -297,6 +318,7 @@ window.triggerOwlClairvoyance = triggerOwlClairvoyance;
 window.triggerRiptideSurge = triggerRiptideSurge;
 window.triggerSilverArrow = triggerSilverArrow;
 window.triggerSolarChariot = triggerSolarChariot;
+window.triggerMoltenAnvil = triggerMoltenAnvil;
 
 let cameraMode = 'center';
 const maze = generateMaze(1000, 1000);

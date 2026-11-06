@@ -232,6 +232,7 @@ function advanceMinotaurLure() {
       updateTridentUI();
       updateArrowUI();
       updateChariotUI();
+      updateAnvilUI();
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
@@ -250,6 +251,9 @@ function advanceMinotaurLure() {
       updateTridentUI();
       updateArrowUI();
       updateChariotUI();
+      activeAnvilTrap = null;
+      window.activeAnvilTrap = null;
+      updateAnvilUI();
       const lo = document.getElementById('loseOverlay');
       if (lo) lo.style.display = 'flex';
       drawMaze();
@@ -273,6 +277,12 @@ function advanceMinotaurLure() {
     updateShieldUI();
     drawMaze();
     return { status: 'scorched', moved: true };
+  }
+
+  // Check Minotaur Anvil Trap after movement
+  if (typeof checkMinotaurAnvilTrap === 'function' && checkMinotaurAnvilTrap()) {
+    drawMaze();
+    return { status: 'blasted', moved: true };
   }
 
   updateShieldUI();

@@ -76,6 +76,12 @@ window.runIntegrationSmokeSpec = function() {
   const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
   const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
 
+  // Hephaestus Forge state
+  const savedPlayerAnvils = playerAnvils;
+  const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+  const savedAnvilFlashUntil = anvilFlashUntil;
+  const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
+
   // DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -169,6 +175,8 @@ window.runIntegrationSmokeSpec = function() {
 
   let I10 = false;
 
+  let I11 = false;
+
   try {
     // Reset minotaur state
     minotaurActive = false;
@@ -183,6 +191,11 @@ window.runIntegrationSmokeSpec = function() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+
+    // I1: Keyboard victory
+
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
 
     // I1: Keyboard victory
     {
@@ -741,10 +754,188 @@ window.runIntegrationSmokeSpec = function() {
       }
 
       I10 = kbOk && mobOk && pickOk && winOk && apolloPlacementOk && apolloBtnScoreOk && apolloChargeOk;
+
+      // Check I11: Hephaestus Forge & Molten Anvil integration
+      // Hephaestus placement invariants
+      hephaestusShrines.length = 0;
+      hephaestusShrines.push(...savedHephaestusShrines);
+      window.hephaestusShrines = hephaestusShrines;
+      let hephaestusPlacementOk = Array.isArray(hephaestusShrines) && hephaestusShrines.length >= 12;
+      if (hephaestusPlacementOk) {
+        const startX = savedPlayerX;
+        const startY = savedPlayerY;
+        // Verify every shrine is on a walkable tile
+        for (const s of hephaestusShrines) {
+          if (!maze[s.y] || maze[s.y][s.x] !== 1) {
+            hephaestusPlacementOk = false;
+            break;
+          }
+        }
+        // Verify at least 3 shrines within Manhattan distance <= 35 of start
+        let shrinesNearStart = 0;
+        if (hephaestusPlacementOk) {
+          for (const s of hephaestusShrines) {
+            const dist = Math.abs(s.x - startX) + Math.abs(s.y - startY);
+            if (dist <= 35) shrinesNearStart++;
+          }
+          hephaestusPlacementOk = shrinesNearStart >= 3;
+        }
+        // Verify every shrine has Manhattan distance >= 5 from all anchors
+        const hephaestusAnchors = [
+          { x: savedPlayerX, y: savedPlayerY },
+          { x: savedEscapeX, y: savedEscapeY },
+          ...savedKeys,
+          ...savedGates,
+          ...savedTorchPickups,
+          ...savedThreadSpools,
+          ...savedAegisShrines,
+          ...savedHermesShrines,
+          ...savedChronosShrines,
+          ...savedDaedalusShrines,
+          ...savedIcarusShrines,
+          ...savedOrpheusShrines,
+          ...savedAthenaShrines,
+          ...savedPoseidonShrines,
+          ...savedArtemisShrines,
+          ...savedApolloShrines,
+          ...(window.secretPassages || []).map(sp => ({ x: sp.fromX, y: sp.fromY })),
+          ...(window.secretPassages || []).map(sp => ({ x: sp.toX, y: sp.toY }))
+        ];
+        if (hephaestusPlacementOk) {
+          for (const s of hephaestusShrines) {
+            let distFromAnyAnchor = false;
+            for (const anchor of hephaestusAnchors) {
+              const dist = Math.abs(s.x - anchor.x) + Math.abs(s.y - anchor.y);
+              if (dist < 5) {
+                distFromAnyAnchor = true;
+                break;
+              }
+            }
+            if (distFromAnyAnchor) {
+              hephaestusPlacementOk = false;
+              break;
+            }
+          }
+        }
+        // Verify pairwise Manhattan distance >= 5 between distinct shrines
+        if (hephaestusPlacementOk) {
+          for (let i = 0; i < hephaestusShrines.length; i++) {
+            const s1 = hephaestusShrines[i];
+            for (let j = i + 1; j < hephaestusShrines.length; j++) {
+              const s2 = hephaestusShrines[j];
+              const dist = Math.abs(s1.x - s2.x) + Math.abs(s1.y - s2.y);
+              if (dist < 5) {
+                hephaestusPlacementOk = false;
+                break;
+              }
+            }
+            if (!hephaestusPlacementOk) break;
+          }
+        }
+      }
+
+      // Button disable-on-win and +150 score bonus
+      let anvilBtnScoreOk = false;
+      {
+        const testBtn = document.getElementById('anvilButton');
+        if (testBtn) {
+          gameWon = false;
+          gameLost = false;
+          playerAnvils = 1;
+          activeAnvilTrap = null;
+          window.activeAnvilTrap = null;
+          updateAnvilUI();
+          anvilBtnScoreOk = testBtn.disabled === false;
+
+          gameWon = true;
+          updateAnvilUI();
+          anvilBtnScoreOk = anvilBtnScoreOk && testBtn.disabled === true;
+
+          gameWon = false;
+          updateAnvilUI();
+        }
+      }
+
+      // Compare formatWinSummary with playerAnvils = 0 vs 2 for +150 per Anvil bonus
+      if (anvilBtnScoreOk) {
+        playerAnvils = 0;
+        const win0 = formatWinSummary();
+        playerAnvils = 2;
+        const win2 = formatWinSummary();
+        const m0 = win0.match(/Score:\s*(\d+)/);
+        const m2 = win2.match(/Score:\s*(\d+)/);
+        anvilBtnScoreOk = Boolean(m0 && m2 && Number(m2[1]) - Number(m0[1]) === 300);
+        playerAnvils = 0;
+      }
+
+      // anvilTrapOk: triggerMoltenAnvil deployment + checkMinotaurAnvilTrap detonation/stun/wall-blast
+      let anvilTrapOk = false;
+      {
+        const dir = validDir(savedPlayerX, savedPlayerY);
+        playerX = savedPlayerX;
+        playerY = savedPlayerY;
+        gameWon = false;
+        gameLost = false;
+        minotaurActive = false;
+        minotaurX = -1;
+        minotaurY = -1;
+        playerAnvils = 1;
+        activeAnvilTrap = null;
+        window.activeAnvilTrap = null;
+
+        const neighborDirs = [
+          { dx: 0, dy: -1 },
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: -1, dy: 0 }
+        ];
+        const savedNeighborWalls = neighborDirs.map(n => ({
+          x: savedPlayerX + n.dx,
+          y: savedPlayerY + n.dy,
+          val: maze[savedPlayerY + n.dy] ? maze[savedPlayerY + n.dy][savedPlayerX + n.dx] : undefined
+        }));
+        const prevBreached = breachedTiles.map(b => ({ x: b.x, y: b.y }));
+
+        try {
+          if (!savedNeighborWalls.some(w => maze[w.y] && maze[w.y][w.x] === 0)) {
+            const firstInteriorNeighbor = savedNeighborWalls.find(w =>
+              w.y > 0 && w.y < maze.length - 1 &&
+              w.x > 0 && w.x < maze[0].length - 1
+            );
+            if (firstInteriorNeighbor) maze[firstInteriorNeighbor.y][firstInteriorNeighbor.x] = 0;
+          }
+
+          const deployed = triggerMoltenAnvil();
+          anvilTrapOk = deployed === true && playerAnvils === 0 && isAnvilTrapActive() &&
+            activeAnvilTrap.x === savedPlayerX && activeAnvilTrap.y === savedPlayerY &&
+            activeAnvilTrap.steps === 22;
+
+          if (anvilTrapOk && dir) {
+            minotaurActive = true;
+            minotaurX = savedPlayerX + dir.dx;
+            minotaurY = savedPlayerY + dir.dy;
+            minotaurStunnedUntil = 0;
+            minotaurPath = computePathBetween(minotaurX, minotaurY, playerX, playerY);
+
+            const detonated = checkMinotaurAnvilTrap();
+            anvilTrapOk = detonated === true && activeAnvilTrap === null &&
+              window.activeAnvilTrap === null && minotaurStunnedUntil > Date.now() + 5500 &&
+              breachedTiles.length > prevBreached.length;
+          }
+        } finally {
+          for (const w of savedNeighborWalls) {
+            if (w.val !== undefined && maze[w.y]) maze[w.y][w.x] = w.val;
+          }
+          breachedTiles.length = 0;
+          breachedTiles.push(...prevBreached);
+          window.breachedTiles = breachedTiles;
+        }
+      }
+
+      I11 = hephaestusPlacementOk && anvilBtnScoreOk && anvilTrapOk;
     }
 
   } catch (e) {
-
     consoleErrors.push(e && e.message ? e.message : String(e));
   }
   // Restore all state in finally
@@ -772,6 +963,16 @@ window.runIntegrationSmokeSpec = function() {
     minotaurActive = savedMinotaurActive;
     minotaurX = savedMinotaurX;
     minotaurY = savedMinotaurY;
+    restoreArray(minotaurPath, savedMinotaurPath);
+    playerShields = savedPlayerShields;
+    playerDashes = savedPlayerDashes;
+    playerRecalls = savedPlayerRecalls;
+    playerBreaches = savedPlayerBreaches;
+    playerFlares = savedPlayerFlares;
+    solarFlareStepsRemaining = savedSolarFlareStepsRemaining;
+    playerKeys = savedPlayerKeys;
+    gameWon = savedGameWon;
+    gameLost = savedGameLost;
     minotaurStunnedUntil = savedMinotaurStunnedUntil;
     playerDecoys = savedPlayerDecoys;
     decoyFlashUntil = savedDecoyFlashUntil;
@@ -783,19 +984,8 @@ window.runIntegrationSmokeSpec = function() {
     torchStepsRemaining = savedTorchStepsRemaining;
     playerSpools = savedPlayerSpools;
     compassStepsRemaining = savedCompassStepsRemaining;
-    playerShields = savedPlayerShields;
-    playerDashes = savedPlayerDashes;
-    playerRecalls = savedPlayerRecalls;
-    playerBreaches = savedPlayerBreaches;
-    playerFlares = savedPlayerFlares;
-    solarFlareStepsRemaining = savedSolarFlareStepsRemaining;
-    playerKeys = savedPlayerKeys;
-    gameWon = savedGameWon;
-    gameLost = savedGameLost;
-    // Restore arrays in-place
-    restoreSet(visitedTiles, savedVisitedTiles);
-    restoreArray(minotaurPath, savedMinotaurPath);
-    restoreArray(orpheusShrines, savedOrpheusShrines);
+
+    // Restore arrays
     restoreArray(keys, savedKeys);
     restoreArray(gates, savedGates);
     restoreArray(torchPickups, savedTorchPickups);
@@ -806,8 +996,27 @@ window.runIntegrationSmokeSpec = function() {
     restoreArray(daedalusShrines, savedDaedalusShrines);
     restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines);
-    restoreArray(owlEscapePreview, savedOwlEscapePreview);
-    restoreArray(breachedTiles, savedBreachedTiles);
+    restoreArray(orpheusShrines, savedOrpheusShrines);
+
+    // Restore sets
+    restoreSet(visitedTiles, savedVisitedTiles);
+
+    // Restore breachedTiles in-place
+    breachedTiles.length = 0;
+    breachedTiles.push(...savedBreachedTiles);
+    window.breachedTiles = breachedTiles;
+
+    // Restore owlEscapePreview
+    owlEscapePreview.length = 0;
+    owlEscapePreview.push(...savedOwlEscapePreview);
+
+    // Restore Hephaestus Forge state
+    restoreArray(hephaestusShrines, savedHephaestusShrines);
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = savedPlayerAnvils;
+    activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+    window.activeAnvilTrap = activeAnvilTrap;
+    anvilFlashUntil = savedAnvilFlashUntil;
 
     // Restore scalar/object state
     lastMoveDir = savedLastMoveDir ? { dx: savedLastMoveDir.dx, dy: savedLastMoveDir.dy } : null;
@@ -867,9 +1076,10 @@ window.runIntegrationSmokeSpec = function() {
     updateTridentUI();
     updateArrowUI();
     updateChariotUI();
+    updateAnvilUI();
     drawMaze();
     console.error = origConsoleError;
   }
 
-  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, consoleErrors };
+  return { I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, consoleErrors };
 };

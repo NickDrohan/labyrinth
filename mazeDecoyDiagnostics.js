@@ -76,6 +76,12 @@ window.runDecoySmokeSpec = function() {
   const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
   const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
 
+  // Hephaestus Forge state
+  const savedPlayerAnvils = playerAnvils;
+  const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+  const savedAnvilFlashUntil = anvilFlashUntil;
+  const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
+
   // DOM overlays and HUD
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -101,6 +107,8 @@ window.runDecoySmokeSpec = function() {
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;
     chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     // D1: Orpheus Shrine Placement Invariants
     if (!Array.isArray(orpheusShrines) || orpheusShrines.length < 12) throw new Error('D1: orpheusShrines.length < 12');
     for (const s of orpheusShrines) {
@@ -319,6 +327,14 @@ window.runDecoySmokeSpec = function() {
     restoreArray(arrowTrail, savedArrowTrail);
     restoreArray(apolloShrines, savedApolloShrines);
     restoreArray(chariotTrail, savedChariotTrail);
+    // Hephaestus Forge state
+    hephaestusShrines.length = 0;
+    hephaestusShrines.push(...savedHephaestusShrines);
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = savedPlayerAnvils;
+    activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+    window.activeAnvilTrap = activeAnvilTrap;
+    anvilFlashUntil = savedAnvilFlashUntil;
     // Scalars
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -386,6 +402,7 @@ window.runDecoySmokeSpec = function() {
     chariotFlashUntil = savedChariotFlashUntil;
     window.apolloShrines = apolloShrines;
     if (typeof updateChariotUI === 'function') updateChariotUI();
+    if (typeof updateAnvilUI === 'function') updateAnvilUI();
     if (typeof drawMaze === 'function') drawMaze();
     console.error = origConsoleError;
   }
@@ -468,6 +485,12 @@ window.runOwlSmokeSpec = function() {
   const savedChariotFlashUntil = chariotFlashUntil;
   const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
   const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
+  // Snapshot Hephaestus Forge state
+  const savedPlayerAnvils = playerAnvils;
+  const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+  const savedAnvilFlashUntil = anvilFlashUntil;
+  const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
 
   // Snapshot DOM elements
   const winOverlay = document.getElementById('winOverlay');
@@ -618,6 +641,12 @@ window.runOwlSmokeSpec = function() {
     restoreArray(arrowTrail, savedArrowTrail);
     restoreArray(apolloShrines, savedApolloShrines);
     restoreArray(chariotTrail, savedChariotTrail);
+    restoreArray(hephaestusShrines, savedHephaestusShrines);
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = savedPlayerAnvils;
+    activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+    window.activeAnvilTrap = activeAnvilTrap;
+    anvilFlashUntil = savedAnvilFlashUntil;
     chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
@@ -691,6 +720,7 @@ window.runOwlSmokeSpec = function() {
     if (typeof updateTridentUI === 'function') updateTridentUI();
     if (typeof updateArrowUI === 'function') updateArrowUI();
     if (typeof updateChariotUI === 'function') updateChariotUI();
+    if (typeof updateAnvilUI === 'function') updateAnvilUI();
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error

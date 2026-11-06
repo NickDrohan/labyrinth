@@ -96,6 +96,12 @@ function getForbiddenTiles() {
   if (activeDecoy) {
     forbidden.add(`${activeDecoy.x},${activeDecoy.y}`);
   }
+  if (Array.isArray(hephaestusShrines)) {
+    for (const h of hephaestusShrines) forbidden.add(`${h.x},${h.y}`);
+  }
+  if (activeAnvilTrap) {
+    forbidden.add(`${activeAnvilTrap.x},${activeAnvilTrap.y}`);
+  }
   return forbidden;
 }
 
