@@ -1120,26 +1120,11 @@ window.runIntegrationSmokeSpec = function() {
       const modalTextOk = Boolean(winOverlay && winOverlay.textContent.startsWith('You Escaped!') && winOverlay.textContent.includes('Click to Play Again'));
       modalOk = modalPos === 'fixed' && modalZ === '1000' && modalTextOk;
       Object.assign(i13Detail, { modalPos, modalZ, modalTextOk, modalOk });
-
       const loseComputed = loseOverlay ? window.getComputedStyle(loseOverlay) : null;
       const sheetHrefs = [...document.styleSheets].map(s => s.href || 'inline');
       let winRuleFound = false;
-      for (const s of document.styleSheets) {
-        try {
-          for (const r of s.cssRules) {
-            if (r.selectorText === '.win-overlay') winRuleFound = true;
-          }
-        } catch (err) {
-          /* cross-origin sheet: unreadable */
-        }
-      }
-      Object.assign(i13Detail, {
-        losePos: loseComputed ? loseComputed.position : '',
-        loseZ: loseComputed ? loseComputed.zIndex : '',
-        winClass: winOverlay ? winOverlay.className : '',
-        sheetHrefs,
-        winRuleFound
-      });
+      for (const s of document.styleSheets) { try { for (const r of s.cssRules) { if (r.selectorText === '.win-overlay') winRuleFound = true; } } catch (err) { /* cross-origin sheet: unreadable */ } }
+      Object.assign(i13Detail, { losePos: loseComputed ? loseComputed.position : '', loseZ: loseComputed ? loseComputed.zIndex : '', winClass: winOverlay ? winOverlay.className : '', sheetHrefs, winRuleFound });
 
       window.lastI13Detail = i13Detail;
 
