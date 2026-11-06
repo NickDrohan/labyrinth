@@ -56,6 +56,32 @@ window.runDecoySmokeSpec = function() {
   const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
   const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
 
+  // Poseidon Trident state
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
+
+  // Artemis Silver Bow state
+  const savedPlayerArrows = playerArrows;
+  const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+  const savedArrowFlashUntil = arrowFlashUntil;
+  const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+  const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
+
+  // Apollo Sun Chariot state
+  const savedPlayerChariots = playerChariots;
+  const savedChariotTrailStepsRemaining = chariotTrailStepsRemaining;
+  const savedChariotFlashUntil = chariotFlashUntil;
+  const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
+  const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
+  // Hephaestus Forge state
+  const savedPlayerAnvils = playerAnvils;
+  const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+  const savedAnvilFlashUntil = anvilFlashUntil;
+  const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
+
   // DOM overlays and HUD
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -77,6 +103,12 @@ window.runDecoySmokeSpec = function() {
   try {
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     // D1: Orpheus Shrine Placement Invariants
     if (!Array.isArray(orpheusShrines) || orpheusShrines.length < 12) throw new Error('D1: orpheusShrines.length < 12');
     for (const s of orpheusShrines) {
@@ -289,6 +321,20 @@ window.runDecoySmokeSpec = function() {
     restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines);
     restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
+    restoreArray(apolloShrines, savedApolloShrines);
+    restoreArray(chariotTrail, savedChariotTrail);
+    // Hephaestus Forge state
+    hephaestusShrines.length = 0;
+    hephaestusShrines.push(...savedHephaestusShrines);
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = savedPlayerAnvils;
+    activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+    window.activeAnvilTrap = activeAnvilTrap;
+    anvilFlashUntil = savedAnvilFlashUntil;
     // Scalars
     playerX = savedPlayerX;
     playerY = savedPlayerY;
@@ -303,6 +349,8 @@ window.runDecoySmokeSpec = function() {
     playerOwls = savedPlayerOwls;
     owlStepsRemaining = savedOwlStepsRemaining;
     owlFlashUntil = savedOwlFlashUntil;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;
@@ -323,6 +371,7 @@ window.runDecoySmokeSpec = function() {
     window.activeDecoy = activeDecoy;
     window.orpheusShrines = orpheusShrines;
     window.athenaShrines = athenaShrines;
+    window.poseidonShrines = poseidonShrines;
     // DOM overlays and HUD
     if (winOverlay) {
       winOverlay.style.display = savedWinOverlayDisplay;
@@ -342,6 +391,18 @@ window.runDecoySmokeSpec = function() {
     if (typeof updateFlareUI === 'function') updateFlareUI();
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
+    if (typeof updateTridentUI === 'function') updateTridentUI();
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
+    window.artemisShrines = artemisShrines;
+    if (typeof updateArrowUI === 'function') updateArrowUI();
+    playerChariots = savedPlayerChariots;
+    chariotTrailStepsRemaining = savedChariotTrailStepsRemaining;
+    chariotFlashUntil = savedChariotFlashUntil;
+    window.apolloShrines = apolloShrines;
+    if (typeof updateChariotUI === 'function') updateChariotUI();
+    if (typeof updateAnvilUI === 'function') updateAnvilUI();
     if (typeof drawMaze === 'function') drawMaze();
     console.error = origConsoleError;
   }
@@ -405,6 +466,32 @@ window.runOwlSmokeSpec = function() {
   const savedAthenaShrines = athenaShrines.map(a => ({ x: a.x, y: a.y }));
   const savedOwlEscapePreview = owlEscapePreview.map(p => ({ x: p.x, y: p.y }));
 
+  // Snapshot Poseidon state
+  const savedPlayerTridents = playerTridents;
+  const savedRiptideFlashUntil = riptideFlashUntil;
+  const savedPoseidonShrines = poseidonShrines.map(p => ({ x: p.x, y: p.y }));
+  const savedRiptideTrail = riptideTrail.map(p => ({ x: p.x, y: p.y }));
+
+  // Snapshot Artemis state
+  const savedPlayerArrows = playerArrows;
+  const savedArrowVisionStepsRemaining = arrowVisionStepsRemaining;
+  const savedArrowFlashUntil = arrowFlashUntil;
+  const savedArtemisShrines = artemisShrines.map(a => ({ x: a.x, y: a.y }));
+  const savedArrowTrail = arrowTrail.map(t => ({ x: t.x, y: t.y }));
+
+  // Snapshot Apollo Sun Chariot state
+  const savedPlayerChariots = playerChariots;
+  const savedChariotTrailStepsRemaining = chariotTrailStepsRemaining;
+  const savedChariotFlashUntil = chariotFlashUntil;
+  const savedApolloShrines = apolloShrines.map(ap => ({ x: ap.x, y: ap.y }));
+  const savedChariotTrail = chariotTrail.map(t => ({ x: t.x, y: t.y }));
+
+  // Snapshot Hephaestus Forge state
+  const savedPlayerAnvils = playerAnvils;
+  const savedActiveAnvilTrap = activeAnvilTrap ? { x: activeAnvilTrap.x, y: activeAnvilTrap.y, steps: activeAnvilTrap.steps } : null;
+  const savedAnvilFlashUntil = anvilFlashUntil;
+  const savedHephaestusShrines = hephaestusShrines.map(h => ({ x: h.x, y: h.y }));
+
   // Snapshot DOM elements
   const winOverlay = document.getElementById('winOverlay');
   const loseOverlay = document.getElementById('loseOverlay');
@@ -430,10 +517,19 @@ window.runOwlSmokeSpec = function() {
 
   try {
     // Reset transient lures
+    gameWon = false;
+    gameLost = false;
     activeDecoy = null;
     window.activeDecoy = null;
     owlStepsRemaining = 0;
     owlEscapePreview = [];
+
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
 
     // O1: Verify Athena Shrine placement
     {
@@ -443,7 +539,6 @@ window.runOwlSmokeSpec = function() {
       const st = { x: savedPlayerX, y: savedPlayerY };
       O1 = Array.isArray(athenaShrines) && athenaShrines.length >= 12 && athenaShrines.every(s => maze[s.y] && maze[s.y][s.x] === 1) && athenaShrines.filter(s => md(s, st) <= 35).length >= 3 && athenaShrines.every((s, i) => anchors.every(a => md(s, a) >= 5) && athenaShrines.every((o, j) => j === i || md(s, o) >= 5));
     }
-
 
     // O2: Test owl pickup and cap
     minotaurActive = false; minotaurX = -1; minotaurY = -1; escapeX = -1; escapeY = -1;
@@ -500,7 +595,6 @@ window.runOwlSmokeSpec = function() {
       O6 = a && b && c && d;
     }
 
-
     // O4: 22-step countdown
     for (let i = athenaShrines.length - 1; i >= 0; i--) { const s = athenaShrines[i]; if ((s.x === savedPlayerX && s.y === savedPlayerY) || (s.x === validDir.nx && s.y === validDir.ny)) athenaShrines.splice(i, 1); }
     playerX = savedPlayerX; playerY = savedPlayerY; escapeX = -1; escapeY = -1; minotaurActive = false; minotaurX = -1; minotaurY = -1;
@@ -527,7 +621,7 @@ window.runOwlSmokeSpec = function() {
     gameLost = false;
     updateOwlUI();
     const stunAct = triggerOwlClairvoyance();
-    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500) {
+    if (stunAct === true && minotaurStunnedUntil > Date.now() + 2500 && !!minotaurRadar && minotaurRadar.textContent.startsWith('Minotaur: Stunned')) {
       O5 = true;
     }
   } catch (e) {
@@ -543,16 +637,30 @@ window.runOwlSmokeSpec = function() {
     restoreArray(hermesShrines, savedHermesShrines); restoreArray(chronosShrines, savedChronosShrines);
     restoreArray(daedalusShrines, savedDaedalusShrines); restoreArray(icarusShrines, savedIcarusShrines);
     restoreArray(athenaShrines, savedAthenaShrines); restoreArray(owlEscapePreview, savedOwlEscapePreview);
+    restoreArray(poseidonShrines, savedPoseidonShrines);
+    restoreArray(riptideTrail, savedRiptideTrail);
+    restoreArray(artemisShrines, savedArtemisShrines);
+    restoreArray(arrowTrail, savedArrowTrail);
+    restoreArray(apolloShrines, savedApolloShrines);
+    restoreArray(chariotTrail, savedChariotTrail);
+    restoreArray(hephaestusShrines, savedHephaestusShrines);
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = savedPlayerAnvils;
+    activeAnvilTrap = savedActiveAnvilTrap ? { x: savedActiveAnvilTrap.x, y: savedActiveAnvilTrap.y, steps: savedActiveAnvilTrap.steps } : null;
+    window.activeAnvilTrap = activeAnvilTrap;
+    anvilFlashUntil = savedAnvilFlashUntil;
     chronosAnchor = savedChronosAnchor ? { ...savedChronosAnchor } : null;
     activeDecoy = savedActiveDecoy ? { x: savedActiveDecoy.x, y: savedActiveDecoy.y, steps: savedActiveDecoy.steps } : null;
     window.activeDecoy = activeDecoy; window.orpheusShrines = orpheusShrines; window.athenaShrines = athenaShrines;
+    window.poseidonShrines = poseidonShrines;
+    window.artemisShrines = artemisShrines;
+    window.apolloShrines = apolloShrines;
 
-
-    // Restore scalar globals
     playerX = savedPlayerX;
     playerY = savedPlayerY;
     escapeX = savedEscapeX;
     escapeY = savedEscapeY;
+
     minotaurActive = savedMinotaurActive;
     minotaurX = savedMinotaurX;
     minotaurY = savedMinotaurY;
@@ -562,6 +670,14 @@ window.runOwlSmokeSpec = function() {
     playerOwls = savedPlayerOwls;
     owlStepsRemaining = savedOwlStepsRemaining;
     owlFlashUntil = savedOwlFlashUntil;
+    playerTridents = savedPlayerTridents;
+    riptideFlashUntil = savedRiptideFlashUntil;
+    playerArrows = savedPlayerArrows;
+    arrowVisionStepsRemaining = savedArrowVisionStepsRemaining;
+    arrowFlashUntil = savedArrowFlashUntil;
+    playerChariots = savedPlayerChariots;
+    chariotTrailStepsRemaining = savedChariotTrailStepsRemaining;
+    chariotFlashUntil = savedChariotFlashUntil;
     steps = savedSteps;
     torchActive = savedTorchActive;
     torchStepsRemaining = savedTorchStepsRemaining;
@@ -576,7 +692,7 @@ window.runOwlSmokeSpec = function() {
     playerKeys = savedPlayerKeys;
     gameWon = savedGameWon;
     gameLost = savedGameLost;
-    lastMoveDir = savedLastMoveDir;
+    lastMoveDir = savedLastMoveDir ? { dx: savedLastMoveDir.dx, dy: savedLastMoveDir.dy } : null;
 
     // Restore DOM overlay/counter texts
     if (winOverlay) {
@@ -603,6 +719,10 @@ window.runOwlSmokeSpec = function() {
     if (typeof updateFlareUI === 'function') updateFlareUI();
     if (typeof updateDecoyUI === 'function') updateDecoyUI();
     if (typeof updateOwlUI === 'function') updateOwlUI();
+    if (typeof updateTridentUI === 'function') updateTridentUI();
+    if (typeof updateArrowUI === 'function') updateArrowUI();
+    if (typeof updateChariotUI === 'function') updateChariotUI();
+    if (typeof updateAnvilUI === 'function') updateAnvilUI();
     if (typeof drawMaze === 'function') drawMaze();
 
     // Restore console.error
