@@ -35,6 +35,8 @@ function minotaurTick() {
                 triggerAegisRepel(true);
             } else {
                 gameLost = true;
+                clearInterval(minotaurInterval);
+                minotaurInterval = null;
                 // Clear active arrow/chariot/anvil state
                 arrowVisionStepsRemaining = 0;
                 arrowTrail = [];
@@ -374,13 +376,18 @@ function initGame() {
     if (toggleViewBtn) toggleViewBtn.textContent = 'View: 3D + Minimap (M)';
     drawMaze();
 
+    if (window.MazeThreeBridge && typeof window.MazeThreeBridge.onReset === 'function') {
+      window.MazeThreeBridge.onReset();
+    }
+
     setupMobileControls(); // Initialize mobile controls
 
     // Start minotaur behavior
     startMinotaurLoop();
 
     const keydownGen = (window._keydownGen = (window._keydownGen || 0) + 1);
-    document.addEventListener('keydown', (event) => {
+    if (window._mazeKeydownHandler) document.removeEventListener('keydown', window._mazeKeydownHandler);
+    const onMazeKeydown = (event) => {
         if (keydownGen !== window._keydownGen) return;
         if (gameWon || gameLost) {
             return; // Ignore player input if game is won or lost
@@ -467,6 +474,13 @@ function initGame() {
         if (event.key === 'm' || event.key === 'M') {
             event.preventDefault();
             if (typeof toggleViewMode === 'function') toggleViewMode();
+            return;
+        }
+
+        // N/n backend toggle hotkey
+        if (event.key === 'n' || event.key === 'N') {
+            event.preventDefault();
+            if (typeof window.toggleFpBackend === 'function') window.toggleFpBackend();
             return;
         }
 
@@ -699,6 +713,8 @@ function initGame() {
                         return;
                     }
                     gameLost = true;
+                    clearInterval(minotaurInterval);
+                    minotaurInterval = null;
                     arrowVisionStepsRemaining = 0;
                     arrowTrail = [];
                     chariotTrailStepsRemaining = 0;
@@ -733,5 +749,7 @@ function initGame() {
         else {
             drawMaze();
         }
-    });
+    };
+    window._mazeKeydownHandler = onMazeKeydown;
+    document.addEventListener('keydown', onMazeKeydown);
 }

@@ -161,6 +161,8 @@ function triggerPhaseDash() {
       return true;
     }
     gameLost = true;
+    clearInterval(minotaurInterval);
+    minotaurInterval = null;
     arrowVisionStepsRemaining = 0;
     arrowTrail = [];
     chariotTrailStepsRemaining = 0;

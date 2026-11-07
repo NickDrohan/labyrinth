@@ -273,6 +273,8 @@ function handleMobileMove(direction) {
                     return;
                 }
                 gameLost = true;
+                clearInterval(minotaurInterval);
+                minotaurInterval = null;
                 arrowVisionStepsRemaining = 0;
                 arrowTrail = [];
                 chariotTrailStepsRemaining = 0;
@@ -327,6 +329,8 @@ function handleMobileMove(direction) {
                 return;
             } else {
                 gameLost = true;
+                clearInterval(minotaurInterval);
+                minotaurInterval = null;
                 arrowVisionStepsRemaining = 0;
                 arrowTrail = [];
                 chariotTrailStepsRemaining = 0;

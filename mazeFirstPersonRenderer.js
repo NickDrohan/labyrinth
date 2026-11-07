@@ -243,11 +243,16 @@ function toggleViewMode(forceMode) {
     }
     window.viewMode = viewMode;
 
+    if (window.MazeThreeBridge && typeof window.MazeThreeBridge.onViewModeChange === 'function') window.MazeThreeBridge.onViewModeChange(viewMode);
+
     const toggleViewBtn = document.getElementById('toggleViewButton');
     if (toggleViewBtn) {
-        toggleViewBtn.textContent = (viewMode === 'fp') 
-            ? 'View: 3D + Minimap (M)' 
-            : 'View: Overhead Map (M)';
+        if (viewMode === 'fp') {
+            const pref = (window.MazeThreeBridge && typeof window.MazeThreeBridge.getPreference === 'function') ? window.MazeThreeBridge.getPreference() : 'three';
+            toggleViewBtn.textContent = (pref === 'pixi' ? 'View: 2.5D + Minimap (M)' : 'View: 3D + Minimap (M)');
+        } else {
+            toggleViewBtn.textContent = 'View: Overhead Map (M)';
+        }
     }
 
     if (typeof drawMaze === 'function') drawMaze();
@@ -283,7 +288,6 @@ function renderFirstPersonAndMinimap() {
     lastFpFrameSummary.raysCast = 100;
     lastFpFrameSummary.frontWallDist = rays[50].perpDist;
     lastFpFrameSummary.facing = getFacingCardinal();
-    lastFpFrameSummary.mode = viewMode;
     if (viewMode === 'map') {
         fpGraphics.visible = false;
         minimapFrameGraphics.visible = false;
@@ -296,12 +300,52 @@ function renderFirstPersonAndMinimap() {
         }
         mazeGraphics.mask = null;
         lastFpFrameSummary.visibleSprites = 0;
+        if (window.MazeThreeRenderer && typeof window.MazeThreeRenderer.setVisible === 'function') window.MazeThreeRenderer.setVisible(false);
+        if (pixiApp && pixiApp.renderer && pixiApp.renderer.background) pixiApp.renderer.background.alpha = 1;
+        lastFpFrameSummary.backend = 'map';
         return;
     }
     fpGraphics.visible = true;
     minimapFrameGraphics.visible = true;
     drawFpWorld(fpGraphics, rays);
     lastFpFrameSummary.visibleSprites = drawFpSprites(fpGraphics, zBuffer, dirX, dirY, planeX, planeY);
+    if (window.MazeThreeBridge && typeof window.MazeThreeBridge.renderThreeFpFrame === 'function') {
+        const entities = collectFpSprites();
+        const snapshot = {
+            playerX,
+            playerY,
+            dirX,
+            dirY,
+            effRadius: getFpEffectiveRadius(),
+            solarFlareActive: solarFlareStepsRemaining > 0,
+            compassActive: compassStepsRemaining > 0,
+            maze,
+            gates,
+            breachedTiles,
+            entities
+        };
+        const bridgeRes = window.MazeThreeBridge.renderThreeFpFrame(snapshot);
+        const threeUsed = Boolean(bridgeRes && bridgeRes.rendered);
+        if (pixiApp && pixiApp.renderer && pixiApp.renderer.background) {
+            pixiApp.renderer.background.alpha = threeUsed ? 0 : 1;
+        }
+        if (threeUsed) {
+            lastFpFrameSummary.visibleSprites = drawFpSprites(fpGraphics, zBuffer, dirX, dirY, planeX, planeY);
+            fpGraphics.clear();
+        } else {
+            fpGraphics.clear();
+            drawFpWorld(fpGraphics, rays);
+            lastFpFrameSummary.visibleSprites = drawFpSprites(fpGraphics, zBuffer, dirX, dirY, planeX, planeY);
+        }
+        lastFpFrameSummary.backend = threeUsed ? 'three' : 'pixi';
+        lastFpFrameSummary.threePref = (window.MazeThreeBridge && typeof window.MazeThreeBridge.getPreference === 'function') ? window.MazeThreeBridge.getPreference() : 'pixi';
+    } else {
+        fpGraphics.clear();
+        drawFpWorld(fpGraphics, rays);
+        lastFpFrameSummary.visibleSprites = drawFpSprites(fpGraphics, zBuffer, dirX, dirY, planeX, planeY);
+        lastFpFrameSummary.backend = 'pixi';
+        lastFpFrameSummary.threePref = 'pixi';
+    }
     drawFpHud(fpGraphics);
     minimapFrameGraphics.beginFill(0x05070f, 0.85);
     minimapFrameGraphics.lineStyle(2, 0x80d4ff, 1);
@@ -335,6 +379,8 @@ function getFirstPersonState() {
         minimapScale: mazeGraphics.scale.x,
         minimapX: mazeGraphics.x,
         minimapY: mazeGraphics.y,
-        minimapMasked: Boolean(mazeGraphics.mask && fpGraphics._minimapMask && mazeGraphics.mask === fpGraphics._minimapMask && fpGraphics._minimapMask.visible)
+        minimapMasked: Boolean(mazeGraphics.mask && fpGraphics._minimapMask && mazeGraphics.mask === fpGraphics._minimapMask && fpGraphics._minimapMask.visible),
+        backend: lastFpFrameSummary.backend || 'pixi',
+        threePref: lastFpFrameSummary.threePref || 'three'
     };
 }
