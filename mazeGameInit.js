@@ -103,6 +103,32 @@ function initGame() {
         }
     }
 
+    // Ensure .win-overlay and .lose-overlay CSS rules exist
+    let winRuleFound = false;
+    for (const s of document.styleSheets) {
+        try {
+            for (const r of s.cssRules) {
+                if (r.selectorText === '.win-overlay') {
+                    winRuleFound = true;
+                    break;
+                }
+            }
+        } catch (err) {
+            /* cross-origin sheet: unreadable */
+        }
+        if (winRuleFound) break;
+    }
+
+    if (!winRuleFound && document.head) {
+        let styleEl = document.getElementById('mazeOverlayStyles');
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'mazeOverlayStyles';
+            document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = `.win-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 25, 15, 0.88); color: #00ff88; font-family: Arial, sans-serif; font-size: 1.8rem; font-weight: bold; text-align: center; padding: 20px; box-sizing: border-box; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; display: none; } .lose-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); color: #FFD700; font-family: Arial, sans-serif; font-size: 2rem; justify-content: center; align-items: center; z-index: 1000; display: none; } .lose-overlay button { color: #FFD700; font-family: Arial, sans-serif; font-size: 2rem; } .lose-overlay button:hover { color: #FFFF00; }`;
+    }
+
     gameWon = false;
     gameLost = false;
     document.getElementById('winOverlay').style.display = 'none';    document.getElementById('loseOverlay').style.display = 'none';
