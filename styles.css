@@ -21,12 +21,6 @@
     display: none;
 }
 
-@viewport {
-    width: device-width;
-    zoom: 1.0;
-    user-zoom: fixed;
-}
-
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -87,7 +81,6 @@ body {
     margin: 5px;
     min-width: 170px;
 }
-
 
 #compassIndicator.active {
     color: #00e5ff;
@@ -284,7 +277,6 @@ body {
     color: #b3e0ff;
     font-weight: bold;
 }
-
 #owlButton {
     background: #102a4a;
     color: #66b2ff;
@@ -301,37 +293,161 @@ body {
     cursor: not-allowed;
 }
 
-.win-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    color: #FFD700;
-    font-family: Arial, sans-serif;
-    font-size: 2rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10;
+#tridentCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #00ffd5;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
 }
 
-h1 {
+#tridentCounter.ready {
+    color: #80ffea;
+    font-weight: bold;
+}
 
-    font-size: 3rem;
-    margin: 20px 0;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    color: #4a90e2;
+#tridentButton {
+    background: #0b3b3c;
+    color: #00ffd5;
+    border: 1px solid #00ffd5;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#tridentButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#arrowCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #c0ffd8;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#arrowCounter.ready {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+#arrowButton {
+    float: left;
+    font-size: 1.2rem;
+    color: #c0ffd8;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#arrowButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#chariotCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ffbb33;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#chariotCounter.ready {
+    color: #ffd966;
+    font-weight: bold;
+}
+
+#chariotButton {
+    background: #4a2208;
+    color: #ffbb33;
+    border: 1px solid #ffbb33;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#chariotButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#anvilCounter {
+    float: left;
+    font-size: 1.2rem;
+    color: #ff7733;
+    text-shadow: 1px 1px 2px #000;
+    margin: 5px;
+}
+
+#anvilCounter.active {
+    color: #ffbb66;
+    font-weight: bold;
+}
+
+#anvilButton {
+    background: #3d180a;
+    color: #ff7733;
+    border: 1px solid #ff7733;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
+}
+
+#anvilButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 #gameCanvas {
-    display: block;
     margin: 0 auto;
     background-color: #2d2d2d;
     border: 2px solid #4a90e2;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+    position: relative;
+    z-index: 2;
+    display: block;
+}
+
+#threeCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 800px;
+    height: 800px;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: 8px;
+    display: none;
+}
+
+.canvas-container {
+    position: relative;
+    width: 800px;
+    margin: 0 auto;
+}
+
+#gameCanvas.three-active {
+    background-color: transparent;
+}
+
+#toggleViewButton {
+    background: #1b2a4a;
+    color: #80d4ff;
+    border: 1px solid #80d4ff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 4px;
 }
 
 #touchArea {
@@ -423,6 +539,27 @@ h1 {
     padding-bottom: 20px;
 }
 
+.win-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 25, 15, 0.88);
+    color: #00ff88;
+    font-family: Arial, sans-serif;
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    cursor: pointer;
+    display: none;
+}
+
 .lose-overlay {
     position: fixed;
     top: 0;
@@ -433,7 +570,6 @@ h1 {
     color: #FFD700;
     font-family: Arial, sans-serif;
     font-size: 2rem;
-    display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;

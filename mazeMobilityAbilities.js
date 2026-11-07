@@ -53,6 +53,10 @@ function triggerPhaseDash() {
     collectIcarusAt(tx1, ty1);
     collectDecoyAt(tx1, ty1);
     collectOwlAt(tx1, ty1);
+    collectTridentAt(tx1, ty1);
+    collectArrowAt(tx1, ty1);
+    collectChariotAt(tx1, ty1);
+    collectAnvilAt(tx1, ty1);
   }
   const gIdx = gates.findIndex(g => g.x === landX && g.y === landY);
   if (gIdx !== -1) {
@@ -93,6 +97,10 @@ function triggerPhaseDash() {
   onPlayerFlareStep();
   onPlayerDecoyStep();
   onPlayerOwlStep();
+  collectTridentAt(playerX, playerY);
+  onPlayerArrowStep();
+  onPlayerChariotStep();
+  onPlayerAnvilStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -129,6 +137,10 @@ function triggerPhaseDash() {
     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
     if (collectDecoyAt(playerX, playerY)) updateDecoyUI();
     if (collectOwlAt(playerX, playerY)) updateOwlUI();
+    if (collectTridentAt(playerX, playerY)) updateTridentUI();
+    if (collectArrowAt(playerX, playerY)) updateArrowUI();
+    if (collectChariotAt(playerX, playerY)) updateChariotUI();
+    collectAnvilAt(playerX, playerY);
     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
     showSecretPassageMessage();
   }
@@ -142,9 +154,21 @@ function triggerPhaseDash() {
       updateFlareUI();
       updateDecoyUI();
       updateOwlUI();
+      updateTridentUI();
+      updateArrowUI();
+      updateChariotUI();
+      updateAnvilUI();
       return true;
     }
     gameLost = true;
+    clearInterval(minotaurInterval);
+    minotaurInterval = null;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
     const lo = document.getElementById('loseOverlay');
     if (lo) lo.style.display = 'flex';
     updateSpoolUI();
@@ -155,6 +179,10 @@ function triggerPhaseDash() {
     updateFlareUI();
     updateDecoyUI();
     updateOwlUI();
+    updateTridentUI();
+    updateArrowUI();
+    updateChariotUI();
+    updateAnvilUI();
     drawMaze();
     return true;
   }
@@ -162,6 +190,7 @@ function triggerPhaseDash() {
   if (playerX === escapeX && playerY === escapeY) {
     gameWon = true;
     clearInterval(minotaurInterval);
+    minotaurInterval = null;
     torchActive = false; torchStepsRemaining = 0; compassStepsRemaining = 0;
     const wo = document.getElementById('winOverlay');
     if (wo) {
@@ -182,6 +211,16 @@ function triggerPhaseDash() {
     owlStepsRemaining = 0;
     owlEscapePreview = [];
     updateOwlUI();
+    updateTridentUI();
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
+    updateArrowUI();
+    updateChariotUI();
+    updateAnvilUI();
     drawMaze();
 
     return true;
@@ -194,6 +233,10 @@ function triggerPhaseDash() {
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
+  updateArrowUI();
+  updateChariotUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }
@@ -248,18 +291,25 @@ function triggerChronosRecall() {
   }
   collectOwlAt(playerX, playerY);
   if (owlStepsRemaining > 0) refreshOwlEscapePreview();
-  showBannerMessage('Chronos Recall! Warped to anchor & Minotaur stunned for 5s!', 'rgba(110,30,160,0.92)');
+  collectArrowAt(playerX, playerY);
+  collectChariotAt(playerX, playerY);
+  collectAnvilAt(playerX, playerY);
   updateRecallUI();
+  updateArrowUI();
+  updateChariotUI();
+  updateAnvilUI();
   updateShieldUI();
   updateDashUI();
   updateBreachUI();
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
   updateSpoolUI();
   drawMaze();
   return true;
 }
+
 function triggerWallBreach() {
   if (gameWon || gameLost || playerBreaches <= 0) return false;
   const tx = playerX + lastMoveDir.dx;
@@ -301,6 +351,9 @@ function triggerWallBreach() {
   onPlayerFlareStep();
   onPlayerDecoyStep();
   onPlayerOwlStep();
+  onPlayerArrowStep();
+  onPlayerChariotStep();
+  onPlayerAnvilStep();
   if (torchActive) {
     torchStepsRemaining--;
     if (torchStepsRemaining <= 0) {
@@ -319,6 +372,7 @@ function triggerWallBreach() {
     bannerMsg = 'Wall breached! Shortcut carved!';
   }
   showBannerMessage(bannerMsg, 'rgba(180,50,20,0.92)');
+  collectTridentAt(playerX, playerY);
   updateBreachUI();
   updateDashUI();
   updateShieldUI();
@@ -327,6 +381,10 @@ function triggerWallBreach() {
   updateFlareUI();
   updateDecoyUI();
   updateOwlUI();
+  updateTridentUI();
+  updateArrowUI();
+  updateChariotUI();
+  updateAnvilUI();
   drawMaze();
   return true;
 }

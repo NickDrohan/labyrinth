@@ -8,63 +8,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.2/pixi.min.js"></script>
 </head>
 <body>
-<div id="game-container">
-    <canvas id="gameCanvas" width="800" height="800"></canvas>
-    <div id="uniqueTilesCounter" class="counter">Unique tiles: 0</div>
-    <div id="keyCounter" class="counter">Keys: 0</div>
-    <div id="stepCounter" class="counter">Steps: 0</div>
-    <div id="torchIndicator" class="counter">Torch: 0</div>
-    <div id="spoolCounter" class="counter">Spools: 0</div>
-    <div id="compassIndicator" class="counter">Compass: Off</div>
-    <div id="shieldCounter" class="counter">Shields: 0</div>
-    <div id="minotaurRadar" class="counter">Minotaur: Distant</div>
-    <div id="dashCounter" class="counter">Dashes: 0 (→)</div>
-    <div id="recallCounter" class="counter">Recalls: 0 (Ready)</div>
-    <div id="breachCounter" class="counter">Breaches: 0 (→)</div>
-    <div id="flareCounter" class="counter">Flares: 0 (Off)</div>
-    <div id="decoyCounter" class="counter">Decoys: 0 (Off)</div>
-    <div id="owlCounter" class="counter">Owls: 0 (Off)</div>
-    <button id="useSpoolButton" class="camera-btn" type="button" disabled>Use Thread (T)</button>
-    <button id="repelButton" class="camera-btn" type="button" disabled>Aegis Pulse (R)</button>
-    <button id="dashButton" class="camera-btn" type="button" disabled>Phase Dash (F)</button>
-    <button id="recallButton" class="camera-btn" type="button" disabled>Set Anchor (B)</button>
-    <button id="breachButton" class="camera-btn" type="button" disabled>Breach Wall (E)</button>
-    <button id="flareButton" class="camera-btn" type="button" disabled>Solar Flare (Q)</button>
-    <button id="decoyButton" class="camera-btn" type="button" disabled>Lure Minotaur (G)</button>
-    <button id="owlButton" class="camera-btn" type="button" disabled>Owl Sight (V)</button>
-    <div id="legend" class="legend">Gold keys open blue gates
-    <span class="secret-passage-icon">🌀</span> Secret passages: Swirling purple portals that teleport you to a distant location 🧵 Cyan spools: Press T or Use Thread for a 25-step Escape Compass; golden dots mark visited paths 🛡️ Emerald Aegis Shrines: Grant Shields (max 3) to survive a Minotaur hit or press R to repel & stun it 🪽 Golden Winged Sandals: Grant Phase Dashes (max 3); press F or Space to vault 2 tiles & phase through thin walls ⏳ Violet Chronos Hourglasses: Grant Recalls (max 3); press B once to set a Waypoint Anchor and B again to warp back & stun Minotaur 🔨 Crimson Daedalus Anvils: Grant Wall Breaches (max 3); ☀️ Amber Icarus Crystals: Grant Solar Flare (max 3); press Q for 20-step 22-tile vision, target beacons & 6s Minotaur blind
-    🎵 Rose Orpheus Lyres: Grant Siren Decoys (max 3); press G to drop a 18-step acoustic lure that hijacks Minotaur pursuit & stuns it for 5s on contact
-    🦉 Indigo Athena Owls: Grant Owl Sight (max 3); press V for 22-step Tactical Clairvoyance revealing the Escape path, Minotaur trajectory & nearby relics
+    <div class="game-container">
+        <div id="torchIndicator"></div>
+        <div class="counters">
+            <div id="stepCounter">Steps: 0</div>
+            <div id="uniqueTilesCounter">Unique Tiles: 0</div>
+            <div id="keyCounter">Keys: 0</div>
+            <div id="spoolCounter">Spool: 0</div>
+            <div id="compassIndicator">Compass: 0°</div>
+            <div id="shieldCounter">Shield: 0</div>
+            <div id="minotaurRadar">Minotaur Radar: 0</div>
+            <div id="dashCounter">Dash: 0</div>
+            <div id="recallCounter">Recall: 0</div>
+            <div id="breachCounter">Breach: 0</div>
+            <div id="flareCounter">Flare: 0</div>
+            <div id="decoyCounter">Decoy: 0</div>
+            <div id="owlCounter">Owl: 0</div>
+            <div id="tridentCounter">Trident: 0</div>
+            <div id="arrowCounter">Arrow: 0</div>
+            <div id="chariotCounter">Chariot: 0</div>
+            <div id="anvilCounter">Anvil: 0</div>
+        </div>
+        <div class="ability-controls">
+            <button id="useSpoolButton" class="ability-btn">Use Spool</button>
+            <button id="repelButton" class="ability-btn">Repel</button>
+            <button id="dashButton" class="ability-btn">Dash</button>
+            <button id="recallButton" class="ability-btn">Recall</button>
+            <button id="breachButton" class="ability-btn">Breach</button>
+            <button id="flareButton" class="ability-btn">Flare</button>
+            <button id="decoyButton" class="ability-btn">Decoy</button>
+            <button id="owlButton" class="ability-btn">Owl</button>
+            <button id="tridentButton" class="ability-btn">Trident</button>
+            <button id="arrowButton" class="ability-btn">Arrow</button>
+            <button id="chariotButton" class="ability-btn">Chariot</button>
+            <button id="anvilButton" class="ability-btn">Anvil</button>
+        </div>
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="800" height="800" tabindex="0"></canvas>
+            <div id="winOverlay" class="win-overlay" style="display: none;">You Escaped!</div>
+            <div id="loseOverlay" class="lose-overlay" style="display: none;"><div>Game Over!<br><button id="resetButton" type="button">Play Again</button></div></div>
+            <div id="centerCameraButton" class="camera-btn">Center Camera</div>
+            <div id="edgeCameraButton" class="camera-btn">Edge Camera</div>
+            <button id="toggleViewButton" class="camera-btn" type="button">View: 3D + Minimap (M)</button>
+        </div>
+        <div class="mobile-controls">
+            <button class="mobile-btn" data-direction="up">↑</button>
+            <button class="mobile-btn" data-direction="left">←</button>
+            <button class="mobile-btn" data-direction="down">↓</button>
+            <button class="mobile-btn" data-direction="right">→</button>
+        </div>
     </div>
 
-    <div id="winOverlay" class="win-overlay" style="display: none;">You escaped!</div>
-    <div id="loseOverlay" class="lose-overlay" style="display: none;">You were caught!
-        <button id="resetButton">Restart</button>
-    </div>
-
-    <div id="centerCameraButton" class="camera-btn">Center Camera</div>
-    <div id="edgeCameraButton" class="camera-btn">Edge Camera</div>
-
-    <div class="mobile-controls">
-        <button class="mobile-btn" data-direction="up">↑</button>
-        <button class="mobile-btn" data-direction="left">←</button>
-        <button class="mobile-btn" data-direction="down">↓</button>
-        <button class="mobile-btn" data-direction="right">→</button>
-    </div>
-<script src="mazeShrinePlacement.js"></script>
-<script src="mazeAdvancedShrinePlacement.js"></script>
-<script src="mazeWorld.js"></script>
-<script src="mazeMobilityAbilities.js"></script>
-<script src="mazeMinotaurAI.js"></script>
-<script src="mazeAbilities.js"></script>
-<script src="mazeRenderer.js"></script>
-<script src="mazeMobileControls.js"></script>
-<script src="mazeGameInit.js"></script>
-<script src="mazeController.js"></script>
-<script src="mazeThreadDiagnostics.js"></script>
+    <script src="mazeShrinePlacement.js"></script>
+    <script src="mazeAdvancedShrinePlacement.js"></script>
+    <script src="mazeWorld.js"></script>
+    <script src="mazeMobilityAbilities.js"></script>
+    <script src="mazeMinotaurAI.js"></script>
+    <script src="mazeAbilities.js"></script>
+    <script src="mazeHUD.js"></script>
+    <script src="mazeOverheadRenderer.js"></script>
+    <script src="mazeThreeRenderer.js"></script>
+    <script src="mazeThreeWorld.js"></script>
+    <script src="mazeThreeSprites.js"></script>
+    <script src="mazeThreeBridge.js"></script>
+    <script src="mazeFirstPersonRenderer.js"></script>
+    <script src="mazeCanvasRenderer.js"></script>
+    <script src="mazeRenderer.js"></script>
+    <script src="mazeMobileControls.js"></script>
+    <script src="mazeGameInit.js"></script>
+    <script src="mazeController.js"></script>
+    <script src="mazeThreadDiagnostics.js"></script>
+    <script src="mazeDecoySmokeSpec.js"></script>
+<script src="mazeOwlSmokeSpec.js"></script>
 <script src="mazeDecoyDiagnostics.js"></script>
-<script src="mazeIntegrationDiagnostics.js"></script>
-<script src="mazeApp.js"></script>
+    <script src="mazeEnvironmentProbe.js"></script>
+    <script src="mazeIntegrationSmokeSpec.js"></script>
+    <script src="mazeIntegrationDiagnostics.js"></script>
+    <script src="mazeApp.js"></script>
+    <script src="mazeSmokeRunner.js"></script>
 </body>
 </html>

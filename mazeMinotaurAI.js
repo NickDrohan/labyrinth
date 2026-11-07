@@ -56,7 +56,12 @@ function pushMinotaurBack(steps) {
       break;
     }
   }
+
+  if (!isDecoyLureActive()) {
+    rebuildMinotaurPursuit();
+  }
 }
+
 
 function computePathBetween(sx, sy, tx, ty) {
   if (!Array.isArray(maze) || maze.length === 0) return [];
@@ -184,13 +189,13 @@ function advanceMinotaurLure() {
     drawMaze();
     return { status: 'shattered', moved: false };
   }
-  
+
   const ok = (n) => Boolean(n && Math.abs(n.x - minotaurX) + Math.abs(n.y - minotaurY) === 1 && maze[n.y] && maze[n.y][n.x] === 1);
-  
+
   if (!ok(minotaurPath[0])) {
     minotaurPath = computePathBetween(minotaurX, minotaurY, activeDecoy.x, activeDecoy.y);
   }
-  
+
   let next = ok(minotaurPath[0]) ? minotaurPath.shift() : null;
   if (!next) {
     // Find a walkable neighbor that reduces Manhattan distance
@@ -209,24 +214,34 @@ function advanceMinotaurLure() {
       }
     }
   }
-  
+
   if (!next) {
     updateShieldUI();
     drawMaze();
     return { status: 'blocked', moved: false };
   }
-  
+
   minotaurX = next.x;
   minotaurY = next.y;
-  
+
   if (minotaurX === playerX && minotaurY === playerY) {
     if (playerShields > 0) {
       triggerAegisRepel(true);
       updateDecoyUI();
       updateOwlUI();
+      updateTridentUI();
+      updateArrowUI();
+      updateChariotUI();
+      updateAnvilUI();
       return { status: 'shielded', moved: true };
     } else {
       gameLost = true;
+      clearInterval(minotaurInterval);
+      minotaurInterval = null;
+      arrowVisionStepsRemaining = 0;
+      arrowTrail = [];
+      chariotTrailStepsRemaining = 0;
+      chariotTrail = [];
       updateSpoolUI();
       updateShieldUI();
       updateDashUI();
@@ -235,19 +250,43 @@ function advanceMinotaurLure() {
       updateFlareUI();
       updateDecoyUI();
       updateOwlUI();
+      updateTridentUI();
+      updateArrowUI();
+      updateChariotUI();
+      activeAnvilTrap = null;
+      window.activeAnvilTrap = null;
+      updateAnvilUI();
       const lo = document.getElementById('loseOverlay');
       if (lo) lo.style.display = 'flex';
       drawMaze();
       return { status: 'caught', moved: true };
     }
   }
-  
+
   if (minotaurX === activeDecoy.x && minotaurY === activeDecoy.y) {
     shatterSirenDecoy('Minotaur ensnared by Siren Decoy! Stunned for 5s!');
     drawMaze();
     return { status: 'shattered', moved: true };
   }
-  
+
+  // Check if Minotaur stepped onto an active blazing trail
+  if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
+    minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+    chariotTrailStepsRemaining = 0;
+    chariotTrail = [];
+    showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
+    updateChariotUI();
+    updateShieldUI();
+    drawMaze();
+    return { status: 'scorched', moved: true };
+  }
+
+  // Check Minotaur Anvil Trap after movement
+  if (typeof checkMinotaurAnvilTrap === 'function' && checkMinotaurAnvilTrap()) {
+    drawMaze();
+    return { status: 'blasted', moved: true };
+  }
+
   updateShieldUI();
   drawMaze();
   return { status: 'moved', moved: true };

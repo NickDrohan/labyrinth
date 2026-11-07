@@ -1,6 +1,97 @@
 
 
-// Move the initialization code to the bottom of the file
+function minotaurTick() {
+    if (gameWon || gameLost) return;
+
+    if (Date.now() < minotaurStunnedUntil) {
+        updateShieldUI();
+        drawMaze();
+        return;
+    }
+
+    const lure = advanceMinotaurLure();
+    if (lure.moved) {
+        steps++;
+        const stepCounter = document.getElementById('stepCounter');
+        if (stepCounter) stepCounter.textContent = 'Steps: ' + steps;
+    }
+
+    if (minotaurPath.length === 0 && minotaurActive && !(minotaurX === playerX && minotaurY === playerY)) {
+        rebuildMinotaurPursuit();
+    }
+
+    sanitizeMinotaurPath();
+
+    if (minotaurPath.length > 0) {
+        const next = minotaurPath.shift();
+        minotaurX = next.x;
+        minotaurY = next.y;
+        steps++;
+        const stepCounter = document.getElementById('stepCounter');
+        if (stepCounter) stepCounter.textContent = 'Steps: ' + steps;
+
+        if (playerX === minotaurX && playerY === minotaurY) {
+            if (playerShields > 0) {
+                triggerAegisRepel(true);
+            } else {
+                gameLost = true;
+                clearInterval(minotaurInterval);
+                minotaurInterval = null;
+                // Clear active arrow/chariot/anvil state
+                arrowVisionStepsRemaining = 0;
+                arrowTrail = [];
+                chariotTrailStepsRemaining = 0;
+                chariotTrail = [];
+                activeAnvilTrap = null;
+                window.activeAnvilTrap = null;
+
+                // Update all HUD counters
+                updateSpoolUI();
+                updateShieldUI();
+                updateDashUI();
+                updateRecallUI();
+                updateBreachUI();
+                updateDecoyUI();
+                updateAnvilUI();
+                updateFlareUI();
+                updateOwlUI();
+                updateTridentUI();
+                updateArrowUI();
+                updateChariotUI();
+
+                // Display lose overlay
+                const loseOverlay = document.getElementById('loseOverlay');
+                if (loseOverlay) loseOverlay.style.display = 'flex';
+
+                drawMaze();
+                return;
+            }
+        }
+    }
+
+    // Scorch check for chariot trail
+    if (chariotTrailStepsRemaining > 0 && Array.isArray(chariotTrail) && chariotTrail.some(t => t.x === minotaurX && t.y === minotaurY)) {
+        minotaurStunnedUntil = Math.max(minotaurStunnedUntil, Date.now() + CHARIOT_STUN_MS);
+        chariotTrailStepsRemaining = 0;
+        chariotTrail = [];
+        showBannerMessage('Minotaur scorched by Solar Chariot trail! Stunned for 5s!', 'rgba(220,100,10,0.92)');
+        updateChariotUI();
+        updateShieldUI();
+        drawMaze();
+        return;
+    }
+
+    checkMinotaurAnvilTrap();
+    updateShieldUI();
+    drawMaze();
+}
+
+function startMinotaurLoop() {
+    clearInterval(minotaurInterval);
+    minotaurInterval = setInterval(minotaurTick, 250);
+    return minotaurInterval;
+}
+
 function initGame() {
     // Hide secret passage message and clear timeout on reset
     const secretPassageMessageEl = document.getElementById('secretPassageMessage');
@@ -12,10 +103,35 @@ function initGame() {
         }
     }
 
+    // Ensure .win-overlay and .lose-overlay CSS rules exist
+    let winRuleFound = false;
+    for (const s of document.styleSheets) {
+        try {
+            for (const r of s.cssRules) {
+                if (r.selectorText === '.win-overlay') {
+                    winRuleFound = true;
+                    break;
+                }
+            }
+        } catch (err) {
+            /* cross-origin sheet: unreadable */
+        }
+        if (winRuleFound) break;
+    }
+
+    if (!winRuleFound && document.head) {
+        let styleEl = document.getElementById('mazeOverlayStyles');
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'mazeOverlayStyles';
+            document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = `.win-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 25, 15, 0.88); color: #00ff88; font-family: Arial, sans-serif; font-size: 1.8rem; font-weight: bold; text-align: center; padding: 20px; box-sizing: border-box; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; display: none; } .lose-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); color: #FFD700; font-family: Arial, sans-serif; font-size: 2rem; justify-content: center; align-items: center; z-index: 1000; display: none; } .lose-overlay button { color: #FFD700; font-family: Arial, sans-serif; font-size: 2rem; } .lose-overlay button:hover { color: #FFFF00; }`;
+    }
+
     gameWon = false;
     gameLost = false;
-    document.getElementById('winOverlay').style.display = 'none';
-    document.getElementById('loseOverlay').style.display = 'none';
+    document.getElementById('winOverlay').style.display = 'none';    document.getElementById('loseOverlay').style.display = 'none';
 
     visitedTiles.clear();
     visitedTiles.add(`${playerX},${playerY}`);
@@ -60,6 +176,11 @@ function initGame() {
     recallFlashUntil = 0;
     daedalusShrines.length = 0;
     window.daedalusShrines = daedalusShrines;
+    for (const b of breachedTiles) {
+        if (b.y > 0 && b.y < maze.length - 1 && b.x > 0 && b.x < maze[0].length - 1) {
+            maze[b.y][b.x] = 0;
+        }
+    }
     breachedTiles.length = 0;
     window.breachedTiles = breachedTiles;
     playerBreaches = 0;
@@ -85,6 +206,47 @@ function initGame() {
     owlStepsRemaining = 0;
     owlFlashUntil = 0;
     owlEscapePreview = [];
+
+    // Reset Poseidon Trident & Riptide Surge state
+    poseidonShrines.length = 0;
+    window.poseidonShrines = poseidonShrines;
+    playerTridents = 0;
+    riptideTrail = [];
+    riptideFlashUntil = 0;
+
+    // Reset Artemis Silver Bow & Piercing Silver Arrow state
+    artemisShrines.length = 0;
+    window.artemisShrines = artemisShrines;
+    playerArrows = 0;
+    arrowVisionStepsRemaining = 0;
+    arrowTrail = [];
+    arrowFlashUntil = 0;
+
+    // Reset Apollo Sun Chariot & Blazing Solar Chariot Charge state
+    apolloShrines.length = 0;
+    window.apolloShrines = apolloShrines;
+    playerChariots = 0;
+    chariotTrail = [];
+    chariotTrailStepsRemaining = 0;
+    chariotFlashUntil = 0;
+
+    // Reset Hephaestus Forge & Molten Anvil state
+    hephaestusShrines.length = 0;
+    window.hephaestusShrines = hephaestusShrines;
+    playerAnvils = 0;
+    activeAnvilTrap = null;
+    window.activeAnvilTrap = null;
+    anvilFlashUntil = 0;
+
+    // Ensure start tile (25, 25) is walkable and connected to the even-coordinate spanning tree
+    playerX = 25;
+    playerY = 25;
+    maze[playerY][playerX] = 1;
+    maze[playerY][playerX + 1] = 1;
+    maze[playerY - 1][playerX] = 1;
+    visitedTiles.clear();
+    visitedTiles.add(`${playerX},${playerY}`);
+    document.getElementById('uniqueTilesCounter').textContent = 'Unique Tiles: 1';
 
     // Select escape tile first to ensure escapeX/escapeY are set
     selectEscapeTile();
@@ -223,73 +385,35 @@ function initGame() {
     updateDecoyUI();
     placeAthenaShrines();
     updateOwlUI();
+    placePoseidonShrines();
+    updateTridentUI();
+    placeArtemisShrines();
+    updateArrowUI();
+    placeApolloShrines();
+    updateChariotUI();
+    placeHephaestusShrines();
+    updateAnvilUI();
     let stepCount = 0; // Initialize step count
     const stepCounterEl = document.getElementById('stepCounter');
     if (stepCounterEl) stepCounterEl.textContent = 'Steps: 0';
+    viewMode = 'fp';
+    window.viewMode = 'fp';
+    const toggleViewBtn = document.getElementById('toggleViewButton');
+    if (toggleViewBtn) toggleViewBtn.textContent = 'View: 3D + Minimap (M)';
     drawMaze();
+
+    if (window.MazeThreeBridge && typeof window.MazeThreeBridge.onReset === 'function') {
+      window.MazeThreeBridge.onReset();
+    }
 
     setupMobileControls(); // Initialize mobile controls
 
     // Start minotaur behavior
-    minotaurInterval = setInterval(() => {
-        if (gameWon || gameLost) {
-            return; // Skip minotaur movement if game is won or lost
-        }
-        if (Date.now() < minotaurStunnedUntil) {
-            updateShieldUI();
-            drawMaze();
-            return;
-        }
-        const lure = advanceMinotaurLure();
-        if (lure.status !== 'none') {
-            if (lure.moved) {
-                steps++;
-                stepCount = steps;
-                document.getElementById('stepCounter').textContent = `Steps: ${steps}`;
-            }
-            return;
-        }
-        if (minotaurPath.length === 0 && minotaurActive && !(minotaurX === playerX && minotaurY === playerY)) rebuildMinotaurPursuit();
-        sanitizeMinotaurPath();
-        if (minotaurPath.length > 0) {
-            const nextPosition = minotaurPath.shift(); // Use shift to move towards the user
-            if (nextPosition) {
-                minotaurX = nextPosition.x;
-                minotaurY = nextPosition.y;
-                steps++;
-                stepCount = steps;
-                document.getElementById('stepCounter').textContent = `Steps: ${steps}`; // Update step counter
-
-                // Check for collision with the user
-                if (minotaurX === playerX && minotaurY === playerY) {
-                    if (playerShields > 0) {
-                        triggerAegisRepel(true);
-                        return;
-                    }
-                    gameLost = true;
-                    updateSpoolUI();
-                    updateShieldUI();
-                    updateDashUI();
-                    updateRecallUI();
-                    updateBreachUI();
-                    updateFlareUI();
-                    updateDecoyUI();
-                    updateOwlUI();
-                    const overlay = document.getElementById('loseOverlay');
-                    if (overlay) {
-                        overlay.style.display = 'flex';
-                    }
-                    return;
-                }
-
-                updateShieldUI();
-                drawMaze();
-            }
-        }
-    }, 250); // Move 4 times per second (1000ms / 4 = 250ms)
+    startMinotaurLoop();
 
     const keydownGen = (window._keydownGen = (window._keydownGen || 0) + 1);
-    document.addEventListener('keydown', (event) => {
+    if (window._mazeKeydownHandler) document.removeEventListener('keydown', window._mazeKeydownHandler);
+    const onMazeKeydown = (event) => {
         if (keydownGen !== window._keydownGen) return;
         if (gameWon || gameLost) {
             return; // Ignore player input if game is won or lost
@@ -344,6 +468,48 @@ function initGame() {
             return;
         }
 
+        // Poseidon Riptide Surge hotkey
+        if (event.key === 'c' || event.key === 'C') {
+            event.preventDefault();
+            triggerRiptideSurge();
+            return;
+        }
+
+        // Artemis Silver Arrow hotkey
+        if (event.key === 'x' || event.key === 'X') {
+            event.preventDefault();
+            triggerSilverArrow();
+            return;
+        }
+
+        // Apollo Solar Chariot hotkey
+        if (event.key === 'z' || event.key === 'Z') {
+            event.preventDefault();
+            triggerSolarChariot();
+            return;
+        }
+
+        // Hephaestus Molten Anvil hotkey
+        if (event.key === 'h' || event.key === 'H') {
+            event.preventDefault();
+            triggerMoltenAnvil();
+            return;
+        }
+
+        // M/m view mode toggle
+        if (event.key === 'm' || event.key === 'M') {
+            event.preventDefault();
+            if (typeof toggleViewMode === 'function') toggleViewMode();
+            return;
+        }
+
+        // N/n backend toggle hotkey
+        if (event.key === 'n' || event.key === 'N') {
+            event.preventDefault();
+            if (typeof window.toggleFpBackend === 'function') window.toggleFpBackend();
+            return;
+        }
+
         let newX = playerX;
         let newY = playerY;
 
@@ -376,6 +542,9 @@ function initGame() {
         lastMoveDir = { dx: newX - playerX, dy: newY - playerY };
         updateDashUI();
         updateBreachUI();
+        updateTridentUI();
+        updateArrowUI();
+        updateChariotUI();
 
         // Only process movement if position actually changed
         if (newX !== playerX || newY !== playerY) {
@@ -392,6 +561,8 @@ function initGame() {
                         // Block movement and trigger feedback
                         document.body.style.backgroundColor = '#ffcccc';
                         setTimeout(() => { document.body.style.backgroundColor = ''; }, 100);
+                        // Redraw 3D view and minimap when turning toward locked gate
+                        drawMaze();
                         return;
                     }
                 }
@@ -423,6 +594,11 @@ function initGame() {
                 }
                 onPlayerDecoyStep();
                 onPlayerOwlStep();
+                collectTridentAt(playerX, playerY);
+                updateTridentUI();
+                onPlayerArrowStep();
+        onPlayerChariotStep();
+        onPlayerAnvilStep();
 
                 // Check if the new tile is not in visitedTiles
                 const tileKeyStr = `${playerX},${playerY}`;
@@ -479,10 +655,22 @@ function initGame() {
                     collectRecallAt(playerX, playerY);
                     updateRecallUI();
                     if (collectIcarusAt(playerX, playerY)) updateFlareUI();
+
+                    // Collect Apollo shrine at teleport destination
+                    collectChariotAt(playerX, playerY);
+                    updateChariotUI();
                     collectDecoyAt(playerX, playerY);
                     collectOwlAt(playerX, playerY);
                     if (owlStepsRemaining > 0) refreshOwlEscapePreview();
                     updateOwlUI();
+                    collectTridentAt(playerX, playerY);
+                    updateTridentUI();
+                    collectArrowAt(playerX, playerY);
+                    updateArrowUI();
+
+                    // Collect Hephaestus shrine at teleport destination
+                    collectAnvilAt(playerX, playerY);
+                    updateAnvilUI();
 
                     // Update visited tiles and counters
                     const newTileKey = `${playerX},${playerY}`;
@@ -505,6 +693,8 @@ function initGame() {
                 // Check if player reached escape tile
                 if (playerX === escapeX && playerY === escapeY) {
                     gameWon = true;
+                    clearInterval(minotaurInterval);
+                    minotaurInterval = null;
                     activeDecoy = null;
                     window.activeDecoy = null;
                     updateDecoyUI();
@@ -517,6 +707,17 @@ function initGame() {
                     owlStepsRemaining = 0;
                     owlEscapePreview = [];
                     updateOwlUI();
+                    updateTridentUI();
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
+                    updateArrowUI();
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
+                    updateChariotUI();
+                    // Clear active Anvil Trap on win
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     const winOverlay = document.getElementById('winOverlay');
                     if (winOverlay) {
                         winOverlay.textContent = formatWinSummary();
@@ -538,11 +739,24 @@ function initGame() {
                         return;
                     }
                     gameLost = true;
+                    clearInterval(minotaurInterval);
+                    minotaurInterval = null;
+                    arrowVisionStepsRemaining = 0;
+                    arrowTrail = [];
+                    chariotTrailStepsRemaining = 0;
+                    chariotTrail = [];
                     updateSpoolUI();
                     updateShieldUI();
                     updateDashUI();
                     updateRecallUI();
                     updateBreachUI();
+                    updateTridentUI();
+                    updateArrowUI();
+                    updateChariotUI();
+                    // Clear active Anvil Trap on loss
+                    activeAnvilTrap = null;
+                    window.activeAnvilTrap = null;
+                    updateAnvilUI();
                     // Lose: update flare UI to disable button
                     updateFlareUI();
                     updateDecoyUI();
@@ -561,5 +775,7 @@ function initGame() {
         else {
             drawMaze();
         }
-    });
+    };
+    window._mazeKeydownHandler = onMazeKeydown;
+    document.addEventListener('keydown', onMazeKeydown);
 }
